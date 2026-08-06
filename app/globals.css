@@ -81,10 +81,13 @@ body {
 .btn-primary:active { transform: scale(0.98); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.btn-text {
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 600;
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
 }
 
 .alert {
