@@ -1,35 +1,3 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-model User {
-  id       String @id @default(uuid())
-  username String @unique
-  email    String @unique
-
-  passwordHash String
-  verified     Boolean @default(false)
-  online       Boolean @default(false)
-
-  verificationCode    String?
-  verificationExpires DateTime?
-
-  resetCode    String?
-  resetExpires DateTime?
-
-  lastCodeSentAt DateTime?
-
-  failedLoginAttempts Int       @default(0)
-  lockedUntil         DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
 // Synovra V1 — Phase 1 (auth) + Phase 2 (profile + nav) schema.
 // TODO(Phase 3+): Community, Post, Notification, Favorite, HistoryItem,
 // Collection, AdminAction models get added in later phases.
