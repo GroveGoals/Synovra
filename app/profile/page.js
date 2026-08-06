@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { User, Loader2, AlertCircle, CheckCircle2, Camera, Trash2 } from "lucide-react";
 import NavShell from "@/components/NavShell";
+import AvatarCropper from "@/components/AvatarCropper";
 
 const LANGUAGES = ["English", "French", "Spanish", "Arabic"];
 const MAX_UPLOAD_BYTES = 1_000_000;
@@ -13,26 +14,35 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [cropSource, setCropSource] = useState(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const fileInputRef = useRef(null);
 
   async function loadEverything() {
-    const [sessionRes, profileRes] = await Promise.all([
-      fetch("/api/auth/session"),
-      fetch("/api/profile"),
-    ]);
-    const sessionData = await sessionRes.json();
-    const profileData = await profileRes.json();
-    setUser(sessionData.user);
-    setProfile(profileData.profile);
-    setForm({
-      username: profileData.profile.username,
-      country: profileData.profile.country || "",
-      language: profileData.profile.language,
-      isPublic: profileData.profile.isPublic,
-    });
-    setLoading(false);
+    try {
+      const [sessionRes, profileRes] = await Promise.all([
+        fetch("/api/auth/session"),
+        fetch("/api/profile"),
+      ]);
+      const sessionData = await sessionRes.json();
+      if (!profileRes.ok) {
+        throw new Error(`Profile request failed (${profileRes.status})`);
+      }
+      const profileData = await profileRes.json();
+      setUser(sessionData.user);
+      setProfile(profileData.profile);
+      setForm({
+        username: profileData.profile.username,
+        country: profileData.profile.country || "",
+        language: profileData.profile.language,
+        isPublic: profileData.profile.isPublic,
+      });
+    } catch (err) {
+      setError(`Could not load your profile: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -80,19 +90,26 @@ export default function ProfilePage() {
       return;
     }
 
-    setUploading(true);
-    try {
-      const dataUrl = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    setCropSource(dataUrl);
+    e.target.value = "";
+  }
 
+  async function handleCropSave(croppedDataUrl) {
+    setCropSource(null);
+    setUploading(true);
+    setError("");
+    setSuccess("");
+    try {
       const res = await fetch("/api/profile/avatar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl }),
+        body: JSON.stringify({ dataUrl: croppedDataUrl }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -100,8 +117,8 @@ export default function ProfilePage() {
         setUploading(false);
         return;
       }
-      setProfile((p) => ({ ...p, avatarDataUrl: dataUrl }));
-      setUser((u) => ({ ...u, avatarDataUrl: dataUrl }));
+      setProfile((p) => ({ ...p, avatarDataUrl: croppedDataUrl }));
+      setUser((u) => ({ ...u, avatarDataUrl: croppedDataUrl }));
       setSuccess("Profile picture updated.");
     } catch {
       setError("Upload failed. Please try again.");
@@ -138,6 +155,13 @@ export default function ProfilePage() {
 
   return (
     <NavShell user={user}>
+      {cropSource && (
+        <AvatarCropper
+          imageSrc={cropSource}
+          onCancel={() => setCropSource(null)}
+          onSave={handleCropSave}
+        />
+      )}
       <div className="min-h-screen flex flex-col items-center px-4 pb-16">
         <div className="w-full max-w-[420px] card p-7 mt-10">
           <h1 className="text-xl font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>
