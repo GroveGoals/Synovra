@@ -1,15 +1,14 @@
 "use client";
 import { useRef, useState, useEffect, useCallback } from "react";
-import { RotateCw, ZoomIn, Check, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 
-const PREVIEW_SIZE = 260; // on-screen circular preview, px
-const OUTPUT_SIZE = 480; // final exported image, px
+const PREVIEW_SIZE = 280;
+const OUTPUT_SIZE = 480;
 
 export default function AvatarCropper({ imageSrc, onCancel, onSave }) {
   const imgRef = useRef(null);
   const [naturalSize, setNaturalSize] = useState(null);
   const [zoom, setZoom] = useState(1);
-  const [angle, setAngle] = useState(0); // degrees, any value
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragState = useRef(null);
 
@@ -56,26 +55,25 @@ export default function AvatarCropper({ imageSrc, onCancel, onSave }) {
       OUTPUT_SIZE / 2 + offset.x * outputScaleFactor,
       OUTPUT_SIZE / 2 + offset.y * outputScaleFactor
     );
-    ctx.rotate((angle * Math.PI) / 180);
     ctx.scale(effectiveScale * outputScaleFactor, effectiveScale * outputScaleFactor);
     ctx.drawImage(imgRef.current, -naturalSize.w / 2, -naturalSize.h / 2);
     ctx.restore();
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
     onSave(dataUrl);
-  }, [naturalSize, offset, angle, effectiveScale, onSave]);
+  }, [naturalSize, offset, effectiveScale, onSave]);
 
   return (
     <div
       style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)",
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)",
         display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: 20,
       }}
     >
-      <div className="card" style={{ width: "100%", maxWidth: 340, padding: 22 }}>
+      <div className="card" style={{ width: "100%", maxWidth: 360, padding: 22 }}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-            Adjust photo
+            Drag to reposition
           </h2>
           <button onClick={onCancel} style={{ color: "var(--text-muted)" }} aria-label="Cancel">
             <X size={18} />
@@ -103,7 +101,7 @@ export default function AvatarCropper({ imageSrc, onCancel, onSave }) {
               style={{
                 position: "absolute", left: "50%", top: "50%",
                 width: naturalSize.w, height: naturalSize.h,
-                transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) rotate(${angle}deg) scale(${effectiveScale})`,
+                transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px) scale(${effectiveScale})`,
                 transformOrigin: "center center",
                 pointerEvents: "none",
               }}
@@ -111,27 +109,12 @@ export default function AvatarCropper({ imageSrc, onCancel, onSave }) {
           )}
         </div>
 
-        <div className="mb-4">
-          <label className="flex items-center gap-2 text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
-            <ZoomIn size={13} /> Zoom
-          </label>
-          <input
-            type="range" min="1" max="3" step="0.01" value={zoom}
-            onChange={(e) => setZoom(parseFloat(e.target.value))}
-            style={{ width: "100%" }}
-          />
-        </div>
-
-        <div className="mb-5">
-          <label className="flex items-center gap-2 text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
-            <RotateCw size={13} /> Rotate
-          </label>
-          <input
-            type="range" min="-180" max="180" step="1" value={angle}
-            onChange={(e) => setAngle(parseFloat(e.target.value))}
-            style={{ width: "100%" }}
-          />
-        </div>
+        <input
+          type="range" min="1" max="3" step="0.01" value={zoom}
+          onChange={(e) => setZoom(parseFloat(e.target.value))}
+          style={{ width: "100%", marginBottom: 20 }}
+          aria-label="Zoom"
+        />
 
         <div className="flex gap-2">
           <button onClick={onCancel} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)" }}>
