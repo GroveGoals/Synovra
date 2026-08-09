@@ -1,14 +1,6 @@
 "use client";
 import Link from "next/link";
-import {
-  Mail, ShieldCheck, Calendar, Globe, Languages, Lock, Unlock,
-  User, Settings, HelpCircle, Phone, ChevronRight,
-} from "lucide-react";
-
-function formatDate(dateStr) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-}
+import { User, Settings, HelpCircle, Phone, ChevronRight } from "lucide-react";
 
 export default function DashboardClient({ user }) {
   const quickActions = [
@@ -21,7 +13,7 @@ export default function DashboardClient({ user }) {
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pb-16">
       <div className="w-full max-w-[480px] mt-10">
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-8">
           {user.avatarDataUrl ? (
             <img
               src={user.avatarDataUrl}
@@ -43,44 +35,6 @@ export default function DashboardClient({ user }) {
             </h1>
             <div className="text-xs" style={{ color: "var(--text-muted)" }}>
               {user.online ? "Online now" : "Offline"}
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-5 mb-4">
-          <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--text-muted)" }}>
-            Account status
-          </h2>
-          <div className="space-y-3 text-sm">
-            <div className="flex items-center gap-2.5">
-              <Mail size={15} style={{ color: "var(--text-muted)" }} />
-              <span>{user.email}</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck size={15} style={{ color: "var(--success)" }} />
-              <span>Email verified</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <Calendar size={15} style={{ color: "var(--text-muted)" }} />
-              <span>Member since {formatDate(user.createdAt)}</span>
-            </div>
-            {user.country && (
-              <div className="flex items-center gap-2.5">
-                <Globe size={15} style={{ color: "var(--text-muted)" }} />
-                <span>{user.country}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2.5">
-              <Languages size={15} style={{ color: "var(--text-muted)" }} />
-              <span>{user.language}</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              {user.isPublic ? (
-                <Unlock size={15} style={{ color: "var(--text-muted)" }} />
-              ) : (
-                <Lock size={15} style={{ color: "var(--text-muted)" }} />
-              )}
-              <span>{user.isPublic ? "Public profile" : "Private profile"}</span>
             </div>
           </div>
         </div>
