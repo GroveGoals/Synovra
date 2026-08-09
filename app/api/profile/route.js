@@ -17,6 +17,7 @@ export async function GET() {
       language: user.language,
       isPublic: user.isPublic,
       online: user.online,
+      createdAt: user.createdAt,
     },
   });
 }
