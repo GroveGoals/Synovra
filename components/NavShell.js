@@ -11,7 +11,7 @@ import {
 
 const NAV_ITEMS = [
   { id: "home", label: "Home", href: "/dashboard", icon: Home, available: true },
-  { id: "ai-tools", label: "AI Tools", href: "/ai-tools", icon: Bot, available: false },
+  { id: "ai-tools", label: "AI Tools", href: "/ai-tools", icon: Bot, available: true },
   { id: "school", label: "School", href: "/tools/school", icon: GraduationCap, available: false },
   { id: "business", label: "Business", href: "/tools/business", icon: Briefcase, available: false },
   { id: "writing", label: "Writing", href: "/tools/writing", icon: PenLine, available: false },
