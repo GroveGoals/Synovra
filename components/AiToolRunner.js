@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle, Copy, Check, Sparkles } from "lucide-react";
+import MarkdownText from "@/components/MarkdownText";
 
 export default function AiToolRunner({ tool }) {
   const [values, setValues] = useState({});
@@ -102,8 +103,8 @@ export default function AiToolRunner({ tool }) {
                 {copied ? "Copied" : "Copy"}
               </button>
             </div>
-            <div className="text-sm" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-              {result}
+            <div className="text-sm">
+              <MarkdownText text={result} />
             </div>
           </div>
         )}
