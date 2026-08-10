@@ -20,6 +20,7 @@ model User {
   passwordHash String
   verified     Boolean @default(false)
   online       Boolean @default(false)
+  lastSeenAt   DateTime?
 
   // Profile (Phase 2). Avatar is stored as a base64 data URL directly in
   // Postgres rather than a cloud storage bucket (S3/Cloudinary/etc.) — that
