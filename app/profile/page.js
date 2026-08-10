@@ -4,7 +4,6 @@ import { User, Loader2, AlertCircle, CheckCircle2, Camera, Trash2, RefreshCw } f
 import NavShell from "@/components/NavShell";
 import AvatarCropper from "@/components/AvatarCropper";
 
-const LANGUAGES = ["English", "French", "Spanish", "Arabic"];
 const MAX_UPLOAD_BYTES = 1_000_000; // ~1MB before base64 overhead
 
 export default function ProfilePage() {
@@ -217,3 +216,99 @@ export default function ProfilePage() {
                 className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center"
                 style={{ background: "var(--accent)", color: "white" }}
                 aria-label="Upload photo"
+                disabled={uploading}
+              >
+                {uploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                style={{ display: "none" }}
+              />
+            </div>
+            {profile?.avatarDataUrl && (
+              <button
+                type="button"
+                onClick={handleRemoveAvatar}
+                className="btn-ghost inline-flex items-center gap-1.5 mt-2 text-xs"
+                style={{ color: "var(--text-muted)" }}
+              >
+                <Trash2 size={12} /> Remove photo
+              </button>
+            )}
+          </div>
+
+          {error && <div className="alert alert-error mb-4"><AlertCircle size={15} />{error}</div>}
+          {success && <div className="alert alert-success mb-4"><CheckCircle2 size={15} />{success}</div>}
+
+          <form onSubmit={handleSave} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+                Username
+              </label>
+              <div className="relative flex items-center">
+                <User size={15} className="absolute left-3" style={{ color: "var(--text-muted)" }} />
+                <input
+                  className="input"
+                  value={form.username}
+                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
+                Country <span style={{ fontWeight: 400 }}>(detected automatically)</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <div
+                  className="input pl-3 flex items-center"
+                  style={{ background: "var(--surface-2)", color: form.country ? "var(--text)" : "var(--text-muted)" }}
+                >
+                  {detectingCountry ? "Detecting…" : form.country || "Not detected yet"}
+                </div>
+                <button
+                  type="button"
+                  onClick={detectCountry}
+                  disabled={detectingCountry}
+                  className="btn-ghost"
+                  style={{ color: "var(--text-muted)", padding: "10px" }}
+                  aria-label="Re-detect country"
+                >
+                  <RefreshCw size={16} className={detectingCountry ? "animate-spin" : ""} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <div className="text-sm font-medium">Public profile</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  Anyone can view your profile if enabled
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, isPublic: !f.isPublic }))}
+                className="w-11 h-6 rounded-full relative transition-colors"
+                style={{ background: form.isPublic ? "var(--accent)" : "var(--border)" }}
+              >
+                <span
+                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+                  style={{ transform: form.isPublic ? "translateX(22px)" : "translateX(2px)" }}
+                />
+              </button>
+            </div>
+
+            <button className="btn-primary" type="submit" disabled={saving}>
+              {saving && <Loader2 size={15} className="animate-spin" />}
+              Save Changes
+            </button>
+          </form>
+        </div>
+      </div>
+    </NavShell>
+  );
+}
