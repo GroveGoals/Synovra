@@ -60,8 +60,10 @@ export async function PATCH(req) {
 
   if (typeof body.online === "boolean") {
     data.online = body.online;
+    if (body.online) {
+      data.lastSeenAt = new Date();
+    }
   }
-
   const updated = await prisma.user.update({ where: { id: user.id }, data });
 
   return NextResponse.json({
