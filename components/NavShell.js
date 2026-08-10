@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import PresenceHeartbeat from "@/components/PresenceHeartbeat";
 import {
   Menu, X, Home, Bot, GraduationCap, Briefcase, PenLine, Plane, Wrench,
   Users, Heart, History, FolderOpen, Bell, Crown, Settings, User,
