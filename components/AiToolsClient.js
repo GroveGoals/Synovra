@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Search, ChevronRight, Sparkles } from "lucide-react";
+import { Search, ChevronRight, Sparkles, MessageCircle } from "lucide-react";
 
 export default function AiToolsClient({ tools }) {
   const [query, setQuery] = useState("");
@@ -30,6 +30,28 @@ export default function AiToolsClient({ tools }) {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
+
+        <Link
+          href="/ai-tools/chat"
+          className="flex items-center justify-between p-4 rounded-2xl mb-6"
+          style={{ background: "var(--accent-soft)", border: "1px solid var(--border)" }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: "var(--accent)", color: "white" }}
+            >
+              <MessageCircle size={18} />
+            </div>
+            <div>
+              <div className="text-sm font-semibold">Chat with Syna</div>
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                Ask anything, no form needed
+              </div>
+            </div>
+          </div>
+          <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
+        </Link>
 
         {categories.length === 0 && (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
