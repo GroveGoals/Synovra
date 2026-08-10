@@ -68,6 +68,7 @@ export default function NavShell({ children, user }) {
 
   return (
     <div>
+      <PresenceHeartbeat />
       <style>{`
         .synovra-topbar {
           display: flex; align-items: center; justify-content: space-between;
