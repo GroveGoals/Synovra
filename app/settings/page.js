@@ -7,6 +7,11 @@ import {
 } from "lucide-react";
 import NavShell from "@/components/NavShell";
 
+const LANGUAGES = [
+  "English", "Spanish", "French", "Arabic", "Korean", "Chinese",
+  "Japanese", "Portuguese", "German", "Hindi", "Russian", "Italian",
+];
+
 function formatDate(dateStr) {
   const d = new Date(dateStr);
   return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
@@ -16,6 +21,7 @@ export default function SettingsPage() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [savingLanguage, setSavingLanguage] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -27,6 +33,21 @@ export default function SettingsPage() {
       setLoading(false);
     });
   }, []);
+
+  async function handleLanguageChange(e) {
+    const language = e.target.value;
+    setProfile((p) => ({ ...p, language }));
+    setSavingLanguage(true);
+    try {
+      await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ language }),
+      });
+    } finally {
+      setSavingLanguage(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -73,9 +94,22 @@ export default function SettingsPage() {
                   <span>{profile.country}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2.5">
-                <Languages size={15} style={{ color: "var(--text-muted)" }} />
-                <span>{profile?.language}</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <Languages size={15} style={{ color: "var(--text-muted)" }} />
+                  <span>Language</span>
+                </div>
+                <select
+                  className="input"
+                  style={{ width: "auto", padding: "6px 10px", fontSize: 13 }}
+                  value={profile?.language || "English"}
+                  onChange={handleLanguageChange}
+                  disabled={savingLanguage}
+                >
+                  {LANGUAGES.map((lang) => (
+                    <option key={lang} value={lang}>{lang}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex items-center gap-2.5">
                 {profile?.isPublic ? (
