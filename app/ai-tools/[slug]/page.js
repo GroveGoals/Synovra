@@ -1,3 +1,4 @@
+"use client";
 import { redirect, notFound } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
