@@ -1,5 +1,22 @@
-import { NextResponse } from "next/server";
+ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/requireUser";
+import { SYNA_SYSTEM_CONTEXT } from "@/lib/synaContext";
+
+// Cap attached file size (base64) so one image can't bloat a request or
+// the database it eventually gets persisted into via /api/ai/conversations.
+const MAX_ATTACHMENT_LENGTH = 5_500_000; // ~4MB actual file
+
+function partsForMessage(m) {
+  const parts = [];
+  if (m.text) parts.push({ text: m.text });
+  if (m.attachment?.dataUrl) {
+    const match = m.attachment.dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (match) {
+      parts.push({ inlineData: { mimeType: match[1], data: match[2] } });
+    }
+  }
+  return parts.length > 0 ? parts : [{ text: "" }];
+}
 
 export async function POST(req) {
   const user = await requireUser();
@@ -8,6 +25,11 @@ export async function POST(req) {
   const { messages } = await req.json();
   if (!Array.isArray(messages) || messages.length === 0) {
     return NextResponse.json({ error: "No messages provided." }, { status: 400 });
+  }
+
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage?.attachment?.dataUrl?.length > MAX_ATTACHMENT_LENGTH) {
+    return NextResponse.json({ error: "Attachment is too large. Try a smaller file." }, { status: 413 });
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
@@ -20,7 +42,7 @@ export async function POST(req) {
 
   const contents = messages.map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.text }],
+    parts: partsForMessage(m),
   }));
 
   try {
@@ -32,7 +54,10 @@ export async function POST(req) {
           "Content-Type": "application/json",
           "x-goog-api-key": apiKey,
         },
-        body: JSON.stringify({ contents }),
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYNA_SYSTEM_CONTEXT }] },
+          contents,
+        }),
       }
     );
 
