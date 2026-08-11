@@ -21,6 +21,7 @@ model User {
   verified     Boolean @default(false)
   online       Boolean @default(false)
   lastSeenAt   DateTime?
+
   // Profile (Phase 2). Avatar is stored as a base64 data URL directly in
   // Postgres rather than a cloud storage bucket (S3/Cloudinary/etc.) — that
   // would need yet another third-party account. This works and persists
@@ -46,6 +47,20 @@ model User {
   // Basic brute-force protection on login (V1 spec: "Rate Limiting")
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversations Conversation[]
+}
+
+model Conversation {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title    String
+  messages Json
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
