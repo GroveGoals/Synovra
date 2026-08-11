@@ -1,10 +1,31 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, ChevronRight, Sparkles, MessageCircle } from "lucide-react";
+import { Search, ChevronRight, Sparkles, MessageCircle, MessageSquare, Loader2 } from "lucide-react";
+
+function relativeTime(dateStr) {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 export default function AiToolsClient({ tools }) {
   const [query, setQuery] = useState("");
+  const [conversations, setConversations] = useState([]);
+  const [loadingChats, setLoadingChats] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/ai/conversations")
+      .then((r) => r.json())
+      .then((data) => setConversations(data.conversations || []))
+      .finally(() => setLoadingChats(false));
+  }, []);
 
   const filtered = tools.filter((t) =>
     (t.label + " " + t.description).toLowerCase().includes(query.toLowerCase())
@@ -87,6 +108,50 @@ export default function AiToolsClient({ tools }) {
             </div>
           </div>
         ))}
+
+        <div className="mb-6">
+          <h2 className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--text-muted)" }}>
+            Recent Chats
+          </h2>
+          {loadingChats && (
+            <div className="flex justify-center py-4" style={{ color: "var(--text-muted)" }}>
+              <Loader2 size={18} className="animate-spin" />
+            </div>
+          )}
+          {!loadingChats && conversations.length === 0 && (
+            <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+              No conversations yet — start one above.
+            </p>
+          )}
+          {!loadingChats && conversations.length > 0 && (
+            <div className="card" style={{ padding: 6 }}>
+              {conversations.map((c, i, arr) => (
+                <Link
+                  key={c.id}
+                  href={`/ai-tools/chat?id=${c.id}`}
+                  className="flex items-center justify-between p-3 rounded-xl"
+                  style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}
+                >
+                  <div className="flex items-start gap-2.5" style={{ minWidth: 0 }}>
+                    <MessageSquare size={16} style={{ color: "var(--text-muted)", marginTop: 2, flexShrink: 0 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div
+                        className="text-sm font-medium"
+                        style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      >
+                        {c.title}
+                      </div>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {relativeTime(c.updatedAt)}
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
