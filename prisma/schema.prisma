@@ -1,6 +1,6 @@
 // Synovra V1 — Phase 1 (auth) + Phase 2 (profile + nav) schema.
-// TODO(Phase 3+): Community, Post, Notification, Favorite, HistoryItem,
-// Collection, AdminAction models get added in later phases.
+// TODO(Phase 3+): Community, Post, Notification, AdminAction models
+// get added in later phases.
 // Do not add them yet — keeping this file scoped to what's actually built.
 
 generator client {
@@ -52,6 +52,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   conversations Conversation[]
+  toolRuns      ToolRun[]
+  collections   Collection[]
 }
 
 model Conversation {
@@ -64,4 +66,32 @@ model Conversation {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ToolRun {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  toolId       String
+  toolLabel    String
+  inputSummary String
+  result       String  @db.Text
+  favorited    Boolean @default(false)
+
+  collectionId String?
+  collection   Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+}
+
+model Collection {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name String
+
+  createdAt DateTime  @default(now())
+  toolRuns  ToolRun[]
 }
