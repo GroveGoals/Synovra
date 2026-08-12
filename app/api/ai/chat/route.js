@@ -1,4 +1,4 @@
- import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/requireUser";
 import { SYNA_SYSTEM_CONTEXT } from "@/lib/synaContext";
 
@@ -63,15 +63,29 @@ export async function POST(req) {
 
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
-      throw new Error(`Gemini request failed (${res.status}): ${detail}`);
+      console.error(`Gemini error ${res.status}:`, detail);
+      const message =
+        res.status === 429
+          ? "Syna is temporarily unavailable because the AI request limit has been reached. Please try again later."
+          : "Syna couldn't respond right now. Please try again in a moment.";
+      return NextResponse.json({ error: message }, { status: res.status });
     }
 
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) throw new Error("Gemini returned no usable response.");
+    if (!text) {
+      return NextResponse.json(
+        { error: "Syna couldn't respond right now. Please try again in a moment." },
+        { status: 502 }
+      );
+    }
 
     return NextResponse.json({ ok: true, reply: text });
   } catch (err) {
-    return NextResponse.json({ error: err.message }, { status: 502 });
+    console.error("Chat request failed:", err);
+    return NextResponse.json(
+      { error: "Syna couldn't respond right now. Please try again in a moment." },
+      { status: 502 }
+    );
   }
 }
