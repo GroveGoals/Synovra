@@ -1,0 +1,57 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/requireUser";
+
+export async function GET(req, { params }) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+
+  const posts = await prisma.post.findMany({
+    where: { communityId: params.id },
+    orderBy: { createdAt: "desc" },
+    include: {
+      author: { select: { id: true, username: true, avatarDataUrl: true } },
+      comments: {
+        orderBy: { createdAt: "asc" },
+        include: { author: { select: { id: true, username: true, avatarDataUrl: true } } },
+      },
+    },
+  });
+
+  const shaped = posts.map((p) => ({
+    id: p.id,
+    content: p.content,
+    createdAt: p.createdAt,
+    author: p.author,
+    likeCount: p.likedBy.length,
+    likedByMe: p.likedBy.includes(user.id),
+    comments: p.comments,
+  }));
+
+  return NextResponse.json({ posts: shaped });
+}
+
+export async function POST(req, { params }) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+
+  const community = await prisma.community.findUnique({ where: { id: params.id } });
+  if (!community) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  if (!community.memberIds.includes(user.id)) {
+    return NextResponse.json({ error: "Join this community to post." }, { status: 403 });
+  }
+
+  const { content } = await req.json();
+  const cleanContent = (content || "").trim();
+  if (!cleanContent) return NextResponse.json({ error: "Post can't be empty." }, { status: 400 });
+
+  const post = await prisma.post.create({
+    data: { communityId: params.id, authorId: user.id, content: cleanContent },
+    include: { author: { select: { id: true, username: true, avatarDataUrl: true } } },
+  });
+
+  return NextResponse.json({
+    ok: true,
+    post: { ...post, likeCount: 0, likedByMe: false, comments: [] },
+  });
+}
