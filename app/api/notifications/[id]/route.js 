@@ -1,0 +1,34 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/requireUser";
+
+async function loadOwned(id, userId) {
+  const item = await prisma.notification.findUnique({ where: { id } });
+  if (!item || item.userId !== userId) return null;
+  return item;
+}
+
+export async function PATCH(req, { params }) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+
+  const existing = await loadOwned(params.id, user.id);
+  if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+  const updated = await prisma.notification.update({
+    where: { id: params.id },
+    data: { read: true },
+  });
+  return NextResponse.json({ ok: true, notification: updated });
+}
+
+export async function DELETE(req, { params }) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+
+  const existing = await loadOwned(params.id, user.id);
+  if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+  await prisma.notification.delete({ where: { id: params.id } });
+  return NextResponse.json({ ok: true });
+}
