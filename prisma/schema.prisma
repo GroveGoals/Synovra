@@ -1,6 +1,5 @@
 // Synovra V1 — Phase 1 (auth) + Phase 2 (profile + nav) schema.
-// TODO(Phase 3+): Community, Post, Notification, AdminAction models
-// get added in later phases.
+// TODO(Phase 3+): AdminAction models get added in later phases.
 // Do not add them yet — keeping this file scoped to what's actually built.
 
 generator client {
@@ -22,29 +21,19 @@ model User {
   online       Boolean @default(false)
   lastSeenAt   DateTime?
 
-  // Profile (Phase 2). Avatar is stored as a base64 data URL directly in
-  // Postgres rather than a cloud storage bucket (S3/Cloudinary/etc.) — that
-  // would need yet another third-party account. This works and persists
-  // real images end to end; TODO(scale): move to real object storage once
-  // traffic/avatar size makes that worth the extra account.
   avatarDataUrl String?  @db.Text
   country       String?
   language      String   @default("English")
   isPublic      Boolean  @default(true)
 
-  // Email verification (code-based, real email sent via Resend)
   verificationCode    String?
   verificationExpires DateTime?
 
-  // Forgot / reset password
   resetCode    String?
   resetExpires DateTime?
 
-  // Shared cooldown for both verification + reset codes, so a user
-  // can't spam the "resend" button and burn through email sends.
   lastCodeSentAt DateTime?
 
-  // Basic brute-force protection on login (V1 spec: "Rate Limiting")
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
 
@@ -54,6 +43,10 @@ model User {
   conversations Conversation[]
   toolRuns      ToolRun[]
   collections   Collection[]
+  ownedCommunities Community[]
+  posts            Post[]
+  comments         Comment[]
+  notifications    Notification[]
 }
 
 model Conversation {
@@ -94,4 +87,60 @@ model Collection {
 
   createdAt DateTime  @default(now())
   toolRuns  ToolRun[]
+}
+
+model Community {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String? @db.Text
+  iconDataUrl String? @db.Text
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  memberIds String[] @default([])
+
+  createdAt DateTime @default(now())
+  posts     Post[]
+}
+
+model Post {
+  id          String    @id @default(uuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  content  String   @db.Text
+  likedBy  String[] @default([])
+
+  createdAt DateTime  @default(now())
+  comments  Comment[]
+}
+
+model Comment {
+  id     String @id @default(uuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  content String @db.Text
+
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  category    String
+  title       String
+  description String
+  read        Boolean @default(false)
+
+  createdAt DateTime @default(now())
 }
