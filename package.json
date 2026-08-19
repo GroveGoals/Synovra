@@ -25,3 +25,8 @@
     "tailwindcss": "^3.4.4"
   }
 }
+{
+  "scripts": {
+    "build": "NODE_OPTIONS='--max-old-space-size=256' next build"
+  }
+}
