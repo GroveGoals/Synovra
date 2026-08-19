@@ -40,6 +40,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [community, setCommunity] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [newPost, setNewPost] = useState("");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState("");
@@ -48,15 +49,38 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [cRes, pRes] = await Promise.all([
-      fetch(`/api/communities/${communityId}`),
-      fetch(`/api/communities/${communityId}/posts`),
-    ]);
-    const cData = await cRes.json();
-    const pData = await pRes.json();
-    setCommunity(cData.community || null);
-    setPosts(pData.posts || []);
-    setLoading(false);
+    setLoadError("");
+    try {
+      const [cRes, pRes] = await Promise.all([
+        fetch(`/api/communities/${communityId}`),
+        fetch(`/api/communities/${communityId}/posts`),
+      ]);
+      const cData = await cRes.json();
+
+      if (!cRes.ok) {
+        setLoadError(cData.error || `Failed to load community (${cRes.status})`);
+        setCommunity(null);
+        setLoading(false);
+        return;
+      }
+
+      const pData = await pRes.json();
+      if (!pRes.ok) {
+        setLoadError(pData.error || `Failed to load posts (${pRes.status})`);
+        setCommunity(cData.community || null);
+        setPosts([]);
+        setLoading(false);
+        return;
+      }
+
+      setCommunity(cData.community || null);
+      setPosts(pData.posts || []);
+    } catch (err) {
+      setLoadError("Network error loading community.");
+      setCommunity(null);
+    } finally {
+      setLoading(false);
+    }
   }, [communityId]);
 
   useEffect(() => {
@@ -133,10 +157,18 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     }
   }
 
-  if (loading || !community) {
+  if (loading) {
     return (
       <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
         <Loader2 size={22} className="animate-spin" />
+      </div>
+    );
+  }
+
+  if (loadError || !community) {
+    return (
+      <div className="text-sm text-center py-10" style={{ color: "var(--danger, #e55)" }}>
+        {loadError || "Community not found."}
       </div>
     );
   }
