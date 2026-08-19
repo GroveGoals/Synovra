@@ -5,48 +5,14 @@ import NavShell from "@/components/NavShell";
 import CommunityDetailClient from "@/components/CommunityDetailClient";
 
 export default async function CommunityPage({ params }) {
-  // DEBUG: Log the params
-  console.log("=== COMMUNITY PAGE DEBUG ===");
-  console.log("Params received:", params);
-  
-  // Await params (required in Next.js 14)
-  const { id } = await params;
-  console.log("Community ID extracted:", id);
-  
-  const userId = getSessionUserId();
-  console.log("User ID:", userId);
-  
-  if (!userId) {
-    console.log("No user ID - redirecting to login");
-    redirect("/login");
-  }
-  
-  // DEBUG: Check if user exists
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  console.log("User found:", user ? "YES" : "NO");
-  
-  if (!user || !user.verified) {
-    console.log("User not verified - redirecting to login");
-    redirect("/login");
-  }
+  const { id } = await params; // FIX: params is async in Next 14
 
-  // DEBUG: Check if community exists
-  const community = await prisma.community.findUnique({
-    where: { id: id },
+  const userId = await getSessionUserId(); // FIX: await this
+
+  if (!userId) redirect("/login");
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId }
   });
-  console.log("Community found:", community ? "YES" : "NO");
-  if (community) {
-    console.log("Community name:", community.name);
-    console.log("Community owner:", community.ownerId);
-  }
 
-  return (
-    <NavShell user={user}>
-      <div className="min-h-screen flex flex-col items-center px-4 pb-16">
-        <div className="w-full max-w-[480px] mt-10">
-          <CommunityDetailClient communityId={id} currentUserId={user.id} />
-        </div>
-      </div>
-    </NavShell>
-  );
-}
+  if (!user ||!user.verified) redirect
