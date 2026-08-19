@@ -8,51 +8,61 @@ export async function GET(request, { params }) {
   const userId = getSessionUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const posts = await prisma.post.findMany({
-    where: { communityId: params.id },
-    orderBy: { createdAt: "desc" },
-    include: {
-      author: { select: authorSelect },
-      comments: {
-        orderBy: { createdAt: "asc" },
-        include: { author: { select: authorSelect } },
+  try {
+    const posts = await prisma.post.findMany({
+      where: { communityId: params.id },
+      orderBy: { createdAt: "desc" },
+      include: {
+        author: { select: authorSelect },
+        comments: {
+          orderBy: { createdAt: "asc" },
+          include: { author: { select: authorSelect } },
+        },
       },
-    },
-  });
+    });
 
-  const formatted = posts.map((p) => ({
-    id: p.id,
-    content: p.content,
-    createdAt: p.createdAt,
-    author: p.author,
-    likeCount: p.likedBy.length,
-    likedByMe: p.likedBy.includes(userId),
-    comments: p.comments,
-  }));
+    const formatted = posts.map((p) => ({
+      id: p.id,
+      content: p.content,
+      createdAt: p.createdAt,
+      author: p.author,
+      likeCount: p.likedBy.length,
+      likedByMe: p.likedBy.includes(userId),
+      comments: p.comments,
+    }));
 
-  return NextResponse.json({ posts: formatted });
+    return NextResponse.json({ posts: formatted });
+  } catch (err) {
+    console.error("GET /api/communities/[id]/posts error:", err);
+    return NextResponse.json({ error: "Database error, please retry." }, { status: 500 });
+  }
 }
 
 export async function POST(request, { params }) {
   const userId = getSessionUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const community = await prisma.community.findUnique({ where: { id: params.id } });
-  if (!community) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!community.memberIds.includes(userId)) {
-    return NextResponse.json({ error: "You must join this community to post." }, { status: 403 });
+  try {
+    const community = await prisma.community.findUnique({ where: { id: params.id } });
+    if (!community) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!community.memberIds.includes(userId)) {
+      return NextResponse.json({ error: "You must join this community to post." }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const content = (body.content || "").trim();
+    if (!content) return NextResponse.json({ error: "Post content is required." }, { status: 400 });
+
+    const post = await prisma.post.create({
+      data: { communityId: params.id, authorId: userId, content },
+      include: { author: { select: authorSelect } },
+    });
+
+    return NextResponse.json({
+      post: { id: post.id, content: post.content, createdAt: post.createdAt, author: post.author, likeCount: 0, likedByMe: false, comments: [] },
+    });
+  } catch (err) {
+    console.error("POST /api/communities/[id]/posts error:", err);
+    return NextResponse.json({ error: "Database error, please retry." }, { status: 500 });
   }
-
-  const body = await request.json();
-  const content = (body.content || "").trim();
-  if (!content) return NextResponse.json({ error: "Post content is required." }, { status: 400 });
-
-  const post = await prisma.post.create({
-    data: { communityId: params.id, authorId: userId, content },
-    include: { author: { select: authorSelect } },
-  });
-
-  return NextResponse.json({
-    post: { id: post.id, content: post.content, createdAt: post.createdAt, author: post.author, likeCount: 0, likedByMe: false, comments: [] },
-  });
 }
