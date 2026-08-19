@@ -1,33 +1,3 @@
-import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import NavShell from "@/components/NavShell";
-import CommunityDetailClient from "@/components/CommunityDetailClient";
-
-export default async function CommunityPage({ params }) {
-  // Get the ID from params (must await in Next.js 14)
-  const { id } = await params;
-  
-  // Get the user ID (must await)
-  const userId = await getSessionUserId();
-  if (!userId) redirect("/login");
-  
-  // Find the user
-  const user = await prisma.user.findUnique({ 
-    where: { id: userId } 
-  });
-  if (!user || !user.verified) redirect("/login");
-
-  return (
-    <NavShell user={user}>
-      <div className="min-h-screen flex flex-col items-center px-4 pb-16">
-        <div className="w-full max-w-[480px] mt-10">
-          <CommunityDetailClient 
-            communityId={id} 
-            currentUserId={user.id} 
-          />
-        </div>
-      </div>
-    </NavShell>
-  );
+export default function CommunityPage({ params }) {
+  return <div>Community ID is: {params.id}</div>;
 }
