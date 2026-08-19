@@ -1,85 +1,25 @@
+import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { NextResponse } from "next/server";
+import NavShell from "@/components/NavShell";
+import CommunitiesClient from "@/components/CommunitiesClient";
 
-export async function GET(request) {
-  try {
-    const userId = await getSessionUserId();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+export default async function CommunitiesPage() {
+  const userId = await getSessionUserId();
+  if (!userId) redirect("/login");
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.verified) redirect("/login");
 
-    const { searchParams } = new URL(request.url);
-    const q = searchParams.get('q') || '';
-
-    const communities = await prisma.community.findMany({
-      where: {
-        name: {
-          contains: q,
-          mode: 'insensitive',
-        },
-      },
-      include: {
-        owner: {
-          select: {
-            id: true,
-            username: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    const communitiesWithMembership = communities.map(community => ({
-      ...community,
-      isMember: community.memberIds.includes(userId),
-      isOwner: community.ownerId === userId,
-      memberCount: community.memberIds.length,
-    }));
-
-    return NextResponse.json({ communities: communitiesWithMembership });
-  } catch (error) {
-    console.error("Error fetching communities:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-export async function POST(request) {
-  try {
-    const userId = await getSessionUserId();
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const body = await request.json();
-    const { name, description } = body;
-
-    if (!name || name.trim().length === 0) {
-      return NextResponse.json({ error: "Community name is required" }, { status: 400 });
-    }
-
-    const existing = await prisma.community.findUnique({
-      where: { name: name.trim() },
-    });
-
-    if (existing) {
-      return NextResponse.json({ error: "Community name already exists" }, { status: 400 });
-    }
-
-    const community = await prisma.community.create({
-      data: {
-        name: name.trim(),
-        description: description?.trim() || null,
-        ownerId: userId,
-        memberIds: [userId],
-      },
-    });
-
-    return NextResponse.json({ community }, { status: 201 });
-  } catch (error) {
-    console.error("Error creating community:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
+  return (
+    <NavShell user={user}>
+      <div className="min-h-screen flex flex-col items-center px-4 pb-16">
+        <div className="w-full max-w-[480px] mt-10">
+          <h1 className="text-xl font-semibold mb-6" style={{ fontFamily: "var(--font-display)" }}>
+            Communities
+          </h1>
+          <CommunitiesClient />
+        </div>
+      </div>
+    </NavShell>
+  );
 }
