@@ -8,9 +8,15 @@ export async function GET(request, { params }) {
   const userId = getSessionUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const { searchParams } = new URL(request.url);
+  const channelId = searchParams.get("channelId");
+
   try {
+    const where = { communityId: params.id };
+    if (channelId) where.channelId = channelId;
+
     const posts = await prisma.post.findMany({
-      where: { communityId: params.id },
+      where,
       orderBy: { createdAt: "desc" },
       include: {
         author: { select: authorSelect },
@@ -25,6 +31,7 @@ export async function GET(request, { params }) {
       id: p.id,
       content: p.content,
       createdAt: p.createdAt,
+      channelId: p.channelId,
       author: p.author,
       likeCount: p.likedBy.length,
       likedByMe: p.likedBy.includes(userId),
@@ -51,15 +58,16 @@ export async function POST(request, { params }) {
 
     const body = await request.json();
     const content = (body.content || "").trim();
+    const channelId = body.channelId || null;
     if (!content) return NextResponse.json({ error: "Post content is required." }, { status: 400 });
 
     const post = await prisma.post.create({
-      data: { communityId: params.id, authorId: userId, content },
+      data: { communityId: params.id, channelId, authorId: userId, content },
       include: { author: { select: authorSelect } },
     });
 
     return NextResponse.json({
-      post: { id: post.id, content: post.content, createdAt: post.createdAt, author: post.author, likeCount: 0, likedByMe: false, comments: [] },
+      post: { id: post.id, content: post.content, createdAt: post.createdAt, channelId: post.channelId, author: post.author, likeCount: 0, likedByMe: false, comments: [] },
     });
   } catch (err) {
     console.error("POST /api/communities/[id]/posts error:", err);
