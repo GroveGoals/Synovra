@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canAccessChannel } from "@/lib/channelPermissions";
 
 const authorSelect = { id: true, username: true, avatarDataUrl: true };
 
@@ -30,6 +31,7 @@ export async function GET(request, { params }) {
     const formatted = posts.map((p) => ({
       id: p.id,
       content: p.content,
+      imageUrl: p.imageUrl,
       createdAt: p.createdAt,
       channelId: p.channelId,
       author: p.author,
@@ -58,16 +60,38 @@ export async function POST(request, { params }) {
 
     const body = await request.json();
     const content = (body.content || "").trim();
+    const imageUrl = body.imageUrl || null;
     const channelId = body.channelId || null;
-    if (!content) return NextResponse.json({ error: "Post content is required." }, { status: 400 });
+    if (!content && !imageUrl) {
+      return NextResponse.json({ error: "Post content is required." }, { status: 400 });
+    }
+
+    if (channelId) {
+      const channel = await prisma.channel.findUnique({ where: { id: channelId } });
+      if (!channel) return NextResponse.json({ error: "Channel not found." }, { status: 404 });
+
+      const hasAccess = await canAccessChannel(channel, community, userId);
+      if (!hasAccess) return NextResponse.json({ error: "You don't have access to this channel." }, { status: 403 });
+
+      if (content && !channel.canSendMessages) {
+        return NextResponse.json({ error: "Messages are disabled in this channel." }, { status: 403 });
+      }
+      if (imageUrl && !channel.canSendImages) {
+        return NextResponse.json({ error: "Images are disabled in this channel." }, { status: 403 });
+      }
+    }
 
     const post = await prisma.post.create({
-      data: { communityId: params.id, channelId, authorId: userId, content },
+      data: { communityId: params.id, channelId, authorId: userId, content, imageUrl },
       include: { author: { select: authorSelect } },
     });
 
     return NextResponse.json({
-      post: { id: post.id, content: post.content, createdAt: post.createdAt, channelId: post.channelId, author: post.author, likeCount: 0, likedByMe: false, comments: [] },
+      post: {
+        id: post.id, content: post.content, imageUrl: post.imageUrl,
+        createdAt: post.createdAt, channelId: post.channelId, author: post.author,
+        likeCount: 0, likedByMe: false, comments: [],
+      },
     });
   } catch (err) {
     console.error("POST /api/communities/[id]/posts error:", err);
