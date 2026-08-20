@@ -3,8 +3,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Crown, Users, Loader2, Heart, MessageCircle, Trash2, Send, AlertCircle,
-  UserPlus, Link2, X as XIcon, Hash, Plus, Settings, ChevronLeft, Image as ImageIcon,
-  Shield, ShieldOff,
+  UserPlus, Link2, X as XIcon, Hash, Plus, Settings, ChevronLeft, ChevronDown,
+  Image as ImageIcon, Shield, ShieldOff, Calendar, ZoomIn,
 } from "lucide-react";
 
 function relativeTime(dateStr) {
@@ -37,21 +37,135 @@ function Avatar({ user, size = 32 }) {
   );
 }
 
+function CropModal({ image, aspect, shape, onCancel, onConfirm }) {
+  const [zoom, setZoom] = useState(1);
+  const [pos, setPos] = useState({ x: 0.5, y: 0.5 });
+  const dragRef = useRef(null);
+  const frameRef = useRef(null);
+
+  function handlePointerDown(e) {
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origPos: pos };
+  }
+  function handlePointerMove(e) {
+    if (!dragRef.current || !frameRef.current) return;
+    const rect = frameRef.current.getBoundingClientRect();
+    const dx = (e.clientX - dragRef.current.startX) / rect.width;
+    const dy = (e.clientY - dragRef.current.startY) / rect.height;
+    setPos({
+      x: Math.min(1, Math.max(0, dragRef.current.origPos.x - dx)),
+      y: Math.min(1, Math.max(0, dragRef.current.origPos.y - dy)),
+    });
+  }
+  function handlePointerUp() {
+    dragRef.current = null;
+  }
+
+  function confirm() {
+    const img = new window.Image();
+    img.onload = () => {
+      const outW = aspect >= 1 ? 800 : 400;
+      const outH = Math.round(outW / aspect);
+      const canvas = document.createElement("canvas");
+      canvas.width = outW;
+      canvas.height = outH;
+      const ctx = canvas.getContext("2d");
+
+      const scale = Math.max(outW / img.width, outH / img.height) * zoom;
+      const drawW = img.width * scale;
+      const drawH = img.height * scale;
+      const drawX = outW / 2 - pos.x * drawW;
+      const drawY = outH / 2 - pos.y * drawH;
+
+      ctx.drawImage(img, drawX, drawY, drawW, drawH);
+      onConfirm(canvas.toDataURL("image/jpeg", 0.88));
+    };
+    img.src = image;
+  }
+
+  return (
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 100,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      }}
+    >
+      <div className="card p-4" style={{ maxWidth: 380, width: "100%" }}>
+        <h3 className="text-sm font-semibold mb-3">Adjust image</h3>
+        <div
+          ref={frameRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
+          style={{
+            width: "100%",
+            aspectRatio: aspect,
+            borderRadius: shape === "circle" ? "50%" : 12,
+            overflow: "hidden",
+            position: "relative",
+            background: "var(--surface-2)",
+            cursor: "grab",
+            touchAction: "none",
+          }}
+        >
+          <img
+            src={image}
+            alt=""
+            draggable={false}
+            style={{
+              position: "absolute",
+              top: `${pos.y * 100}%`,
+              left: `${pos.x * 100}%`,
+              transform: `translate(-50%, -50%) scale(${zoom})`,
+              minWidth: "100%",
+              minHeight: "100%",
+              width: "auto",
+              height: "auto",
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
+          />
+        </div>
+        <div className="flex items-center gap-2 mt-3">
+          <ZoomIn size={14} style={{ color: "var(--text-muted)" }} />
+          <input
+            type="range"
+            min="1"
+            max="3"
+            step="0.01"
+            value={zoom}
+            onChange={(e) => setZoom(parseFloat(e.target.value))}
+            style={{ flex: 1 }}
+          />
+        </div>
+        <div className="flex gap-2 mt-3">
+          <button onClick={confirm} className="btn-primary">Apply</button>
+          <button onClick={onCancel} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)" }}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CommunityDetailClient({ communityId, currentUserId }) {
   const router = useRouter();
   const bannerInputRef = useRef(null);
+  const iconInputRef = useRef(null);
 
   const [community, setCommunity] = useState(null);
+  const [sections, setSections] = useState([]);
   const [channels, setChannels] = useState([]);
   const [activeChannelId, setActiveChannelId] = useState(null);
   const [posts, setPosts] = useState([]);
   const [members, setMembers] = useState([]);
+  const [events, setEvents] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [postsLoading, setPostsLoading] = useState(false);
+  const [channelListOpen, setChannelListOpen] = useState(false);
 
-  const [view, setView] = useState("feed"); // "feed" | "members" | "settings"
+  const [view, setView] = useState("feed");
 
   const [newPost, setNewPost] = useState("");
   const [posting, setPosting] = useState(false);
@@ -65,14 +179,24 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [linkCopied, setLinkCopied] = useState(false);
 
   const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelSection, setNewChannelSection] = useState("");
   const [creatingChannel, setCreatingChannel] = useState(false);
   const [channelError, setChannelError] = useState("");
+  const [newSectionName, setNewSectionName] = useState("");
+  const [creatingSection, setCreatingSection] = useState(false);
 
   const [settingsName, setSettingsName] = useState("");
   const [settingsDescription, setSettingsDescription] = useState("");
-  const [settingsBanner, setSettingsBanner] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState("");
+
+  const [cropTarget, setCropTarget] = useState(null);
+
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventTime, setNewEventTime] = useState("");
+  const [newEventDesc, setNewEventDesc] = useState("");
+  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [eventError, setEventError] = useState("");
 
   const canManage = community && (community.isOwner || community.isAdmin);
 
@@ -80,9 +204,10 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     setLoading(true);
     setLoadError("");
     try {
-      const [cRes, chRes] = await Promise.all([
+      const [cRes, chRes, secRes] = await Promise.all([
         fetch(`/api/communities/${communityId}`),
         fetch(`/api/communities/${communityId}/channels`),
+        fetch(`/api/communities/${communityId}/sections`),
       ]);
       const cData = await cRes.json();
 
@@ -94,13 +219,15 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
       }
 
       const chData = await chRes.json();
+      const secData = await secRes.json();
       const loadedChannels = chRes.ok ? (chData.channels || []) : [];
+      const loadedSections = secRes.ok ? (secData.sections || []) : [];
 
       setCommunity(cData.community || null);
       setSettingsName(cData.community?.name || "");
       setSettingsDescription(cData.community?.description || "");
-      setSettingsBanner(cData.community?.bannerDataUrl || "");
       setChannels(loadedChannels);
+      setSections(loadedSections);
       setActiveChannelId((prev) => prev || loadedChannels[0]?.id || null);
     } catch (err) {
       setLoadError("Network error loading community.");
@@ -120,7 +247,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
       const data = await res.json();
       if (res.ok) setPosts(data.posts || []);
     } catch (err) {
-      // leave posts as-is on failure
     } finally {
       setPostsLoading(false);
     }
@@ -131,22 +257,21 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
       const res = await fetch(`/api/communities/${communityId}/members`);
       const data = await res.json();
       if (res.ok) setMembers(data.members || []);
-    } catch (err) {
-      // silent fail
-    }
+    } catch (err) {}
   }, [communityId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const loadEvents = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/communities/${communityId}/events`);
+      const data = await res.json();
+      if (res.ok) setEvents(data.events || []);
+    } catch (err) {}
+  }, [communityId]);
 
-  useEffect(() => {
-    if (activeChannelId) loadPosts(activeChannelId);
-  }, [activeChannelId, loadPosts]);
-
-  useEffect(() => {
-    if (view === "members") loadMembers();
-  }, [view, loadMembers]);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (activeChannelId) loadPosts(activeChannelId); }, [activeChannelId, loadPosts]);
+  useEffect(() => { if (view === "members") loadMembers(); }, [view, loadMembers]);
+  useEffect(() => { if (view === "events") loadEvents(); }, [view, loadEvents]);
 
   async function toggleMembership() {
     if (community.isMember) {
@@ -249,443 +374,4 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   }
 
   async function handleToggleAdmin(member) {
-    const current = community.adminIds || [];
-    const nextAdmins = current.includes(member.id)
-      ? current.filter((id) => id !== member.id)
-      : [...current, member.id];
-
-    await fetch(`/api/communities/${communityId}/settings`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminIds: nextAdmins }),
-    });
-    load();
-    loadMembers();
-  }
-
-  function handleCopyLink() {
-    const url = window.location.href;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(url);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    }
-  }
-
-  async function handleCreateChannel(e) {
-    e.preventDefault();
-    const name = newChannelName.trim();
-    if (!name) return;
-    setChannelError("");
-    setCreatingChannel(true);
-    const res = await fetch(`/api/communities/${communityId}/channels`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    const data = await res.json();
-    setCreatingChannel(false);
-    if (!res.ok) {
-      setChannelError(data.error || "Could not create channel.");
-      return;
-    }
-    setNewChannelName("");
-    setChannels((prev) => [...prev, data.channel]);
-    setActiveChannelId(data.channel.id);
-    setView("feed");
-  }
-
-  async function handleDeleteChannel(channel) {
-    if (!window.confirm(`Delete #${channel.name}? All posts in it will be deleted.`)) return;
-    await fetch(`/api/communities/${communityId}/channels/${channel.id}`, { method: "DELETE" });
-    const remaining = channels.filter((c) => c.id !== channel.id);
-    setChannels(remaining);
-    if (activeChannelId === channel.id) {
-      setActiveChannelId(remaining[0]?.id || null);
-    }
-  }
-
-  function handleBannerFileChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setSettingsBanner(reader.result);
-    reader.readAsDataURL(file);
-  }
-
-  async function handleSaveSettings(e) {
-    e.preventDefault();
-    setSavingSettings(true);
-    setSettingsStatus("");
-    const res = await fetch(`/api/communities/${communityId}/settings`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: settingsName,
-        description: settingsDescription,
-        bannerDataUrl: settingsBanner,
-      }),
-    });
-    const data = await res.json();
-    setSavingSettings(false);
-    if (!res.ok) {
-      setSettingsStatus(data.error || "Could not save settings.");
-      return;
-    }
-    setSettingsStatus("Saved.");
-    load();
-  }
-
-  if (loading) {
-    return (
-      <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
-        <Loader2 size={22} className="animate-spin" />
-      </div>
-    );
-  }
-
-  if (loadError || !community) {
-    return (
-      <div className="text-sm text-center py-10" style={{ color: "var(--danger, #e55)" }}>
-        {loadError || "Community not found."}
-      </div>
-    );
-  }
-
-  const activeChannel = channels.find((c) => c.id === activeChannelId);
-
-  return (
-    <div>
-      <div
-        className="mb-4"
-        style={{
-          borderRadius: 16,
-          overflow: "hidden",
-          border: "1px solid var(--border)",
-        }}
-      >
-        <div
-          style={{
-            height: 120,
-            background: community.bannerDataUrl
-              ? `url(${community.bannerDataUrl}) center/cover`
-              : "linear-gradient(135deg, var(--accent-soft), var(--surface-2))",
-          }}
-        />
-        <div className="card p-4" style={{ borderRadius: 0, borderTop: "none", marginTop: -1 }}>
-          <div className="flex items-center gap-3 mb-3">
-            <Avatar user={{ username: community.name, avatarDataUrl: community.iconDataUrl }} size={52} />
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>{community.name}</h1>
-                {community.isOwner && <Crown size={14} style={{ color: "#F0B75E" }} />}
-              </div>
-              <button
-                onClick={() => setView(view === "members" ? "feed" : "members")}
-                className="text-xs flex items-center gap-1"
-                style={{ color: "var(--text-muted)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
-              >
-                <Users size={12} /> {community.memberCount} member{community.memberCount === 1 ? "" : "s"}
-              </button>
-            </div>
-            {canManage && (
-              <button
-                onClick={() => setView(view === "settings" ? "feed" : "settings")}
-                aria-label="Community settings"
-                style={{ color: "var(--text-muted)", background: "var(--surface-2)", border: "none", borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
-              >
-                <Settings size={16} />
-              </button>
-            )}
-          </div>
-          {community.description && <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>{community.description}</p>}
-          <div className="flex gap-2 flex-wrap">
-            {!community.isOwner && (
-              <button
-                onClick={toggleMembership}
-                className="btn-primary"
-                style={community.isMember ? { background: "var(--surface-2)", color: "var(--text)" } : {}}
-              >
-                {community.isMember ? "Leave" : "Join"}
-              </button>
-            )}
-            <button
-              onClick={handleCopyLink}
-              className="btn-primary"
-              style={{ background: "var(--surface-2)", color: "var(--text)", maxWidth: 180 }}
-            >
-              <Link2 size={14} /> {linkCopied ? "Link copied!" : "Copy invite link"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {view === "members" && (
-        <div className="card p-4 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <button onClick={() => setView("feed")} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
-              <ChevronLeft size={18} />
-            </button>
-            <h2 className="text-sm font-semibold">Members</h2>
-          </div>
-
-          {canManage && (
-            <form onSubmit={handleInvite} className="flex items-center gap-2 mb-3">
-              <input
-                className="input pl-3"
-                style={{ padding: "8px 10px", fontSize: 13 }}
-                placeholder="Invite by username…"
-                value={inviteUsername}
-                onChange={(e) => setInviteUsername(e.target.value)}
-              />
-              <button type="submit" className="btn-primary" style={{ maxWidth: 100 }} disabled={inviting || !inviteUsername.trim()}>
-                {inviting ? <Loader2 size={14} className="animate-spin" /> : <><UserPlus size={14} /> Invite</>}
-              </button>
-            </form>
-          )}
-          {inviteStatus && (
-            <div className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{inviteStatus}</div>
-          )}
-
-          <div className="space-y-2">
-            {members.map((m) => (
-              <div key={m.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Avatar user={m} size={28} />
-                  <span className="text-sm">{m.username}</span>
-                  {m.isOwner && <Crown size={12} style={{ color: "#F0B75E" }} />}
-                  {!m.isOwner && community.adminIds?.includes(m.id) && (
-                    <span className="text-xs" style={{ color: "var(--accent)" }}>Admin</span>
-                  )}
-                </div>
-                {community.isOwner && !m.isOwner && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleToggleAdmin(m)}
-                      aria-label={community.adminIds?.includes(m.id) ? `Remove admin from ${m.username}` : `Make ${m.username} admin`}
-                      style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
-                    >
-                      {community.adminIds?.includes(m.id) ? <ShieldOff size={15} /> : <Shield size={15} />}
-                    </button>
-                    <button
-                      onClick={() => handleRemoveMember(m.id)}
-                      aria-label={`Remove ${m.username}`}
-                      style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
-                    >
-                      <XIcon size={15} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-            {members.length === 0 && (
-              <p className="text-xs" style={{ color: "var(--text-muted)" }}>No members loaded yet.</p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {view === "settings" && canManage && (
-        <div className="card p-4 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <button onClick={() => setView("feed")} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
-              <ChevronLeft size={18} />
-            </button>
-            <h2 className="text-sm font-semibold">Community Settings</h2>
-          </div>
-
-          <form onSubmit={handleSaveSettings} className="space-y-3">
-            <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Banner</label>
-              <div
-                onClick={() => bannerInputRef.current?.click()}
-                style={{
-                  height: 90, borderRadius: 12, marginTop: 6, cursor: "pointer",
-                  background: settingsBanner
-                    ? `url(${settingsBanner}) center/cover`
-                    : "var(--surface-2)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  border: "1px dashed var(--border)",
-                }}
-              >
-                {!settingsBanner && <ImageIcon size={20} style={{ color: "var(--text-muted)" }} />}
-              </div>
-              <input ref={bannerInputRef} type="file" accept="image/*" onChange={handleBannerFileChange} style={{ display: "none" }} />
-            </div>
-
-            <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Name</label>
-              <input
-                className="input pl-3 mt-1"
-                value={settingsName}
-                onChange={(e) => setSettingsName(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Description</label>
-              <input
-                className="input pl-3 mt-1"
-                value={settingsDescription}
-                onChange={(e) => setSettingsDescription(e.target.value)}
-              />
-            </div>
-
-            {settingsStatus && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{settingsStatus}</div>}
-
-            <button type="submit" className="btn-primary" disabled={savingSettings}>
-              {savingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save Settings"}
-            </button>
-          </form>
-
-          <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-            <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Channels</h3>
-            <div className="space-y-1 mb-3">
-              {channels.map((c) => (
-                <div key={c.id} className="flex items-center justify-between text-sm py-1">
-                  <span className="flex items-center gap-1"><Hash size={13} /> {c.name}</span>
-                  {channels.length > 1 && (
-                    <button onClick={() => handleDeleteChannel(c)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label={`Delete #${c.name}`}>
-                      <XIcon size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <form onSubmit={handleCreateChannel} className="flex items-center gap-2">
-              {channelError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{channelError}</div>}
-              <input
-                className="input pl-3"
-                style={{ padding: "8px 10px", fontSize: 13 }}
-                placeholder="new-channel-name"
-                value={newChannelName}
-                onChange={(e) => setNewChannelName(e.target.value)}
-              />
-              <button type="submit" className="btn-primary" style={{ maxWidth: 90 }} disabled={creatingChannel || !newChannelName.trim()}>
-                {creatingChannel ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add</>}
-              </button>
-            </form>
-
-            {community.isOwner && (
-              <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-                <button onClick={handleDeleteCommunity} className="btn-primary" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
-                  <Trash2 size={14} /> Delete Community
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {view === "feed" && (
-        <>
-          <div className="flex items-center gap-2 mb-4" style={{ overflowX: "auto", paddingBottom: 4 }}>
-            {channels.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setActiveChannelId(c.id)}
-                className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full flex-shrink-0"
-                style={
-                  activeChannelId === c.id
-                    ? { background: "var(--accent)", color: "white" }
-                    : { background: "var(--surface-2)", color: "var(--text-muted)" }
-                }
-              >
-                <Hash size={12} /> {c.name}
-              </button>
-            ))}
-            {channels.length === 0 && (
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>No channels yet.</span>
-            )}
-          </div>
-
-          {community.isMember && activeChannel && (
-            <form onSubmit={handlePost} className="card p-4 mb-5">
-              {error && <div className="alert alert-error mb-2"><AlertCircle size={14} />{error}</div>}
-              <textarea
-                className="input pl-3"
-                style={{ minHeight: 70, resize: "vertical", paddingTop: 10 }}
-                placeholder={`Message #${activeChannel.name}…`}
-                value={newPost}
-                onChange={(e) => setNewPost(e.target.value)}
-              />
-              <button className="btn-primary mt-2" type="submit" disabled={posting || !newPost.trim()}>
-                {posting ? <Loader2 size={14} className="animate-spin" /> : "Post"}
-              </button>
-            </form>
-          )}
-
-          {postsLoading ? (
-            <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
-              <Loader2 size={22} className="animate-spin" />
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {posts.length === 0 && (
-                <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>No posts yet.</p>
-              )}
-              {posts.map((post) => (
-                <div key={post.id} className="card p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Avatar user={post.author} />
-                      <div>
-                        <div className="text-sm font-semibold">{post.author.username}</div>
-                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>{relativeTime(post.createdAt)}</div>
-                      </div>
-                    </div>
-                    {post.author.id === currentUserId && (
-                      <button onClick={() => handleDeletePost(post.id)} style={{ color: "var(--text-muted)" }} aria-label="Delete post">
-                        <Trash2 size={15} />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-sm mb-3" style={{ overflowWrap: "anywhere" }}>{post.content}</p>
-                  <div className="flex items-center gap-4">
-                    <button onClick={() => handleLike(post)} className="flex items-center gap-1.5 text-xs" style={{ color: post.likedByMe ? "var(--danger)" : "var(--text-muted)" }}>
-                      <Heart size={15} fill={post.likedByMe ? "var(--danger)" : "none"} /> {post.likeCount}
-                    </button>
-                    <button
-                      onClick={() => setOpenComments((prev) => ({ ...prev, [post.id]: !prev[post.id] }))}
-                      className="flex items-center gap-1.5 text-xs"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      <MessageCircle size={15} /> {post.comments.length}
-                    </button>
-                  </div>
-
-                  {openComments[post.id] && (
-                    <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
-                      {post.comments.map((c) => (
-                        <div key={c.id} className="flex items-start gap-2 mb-2">
-                          <Avatar user={c.author} size={26} />
-                          <div className="text-xs" style={{ background: "var(--surface-2)", borderRadius: 10, padding: "6px 10px", flex: 1 }}>
-                            <span className="font-semibold">{c.author.username}</span>{" "}
-                            <span style={{ color: "var(--text-muted)" }}>{c.content}</span>
-                          </div>
-                        </div>
-                      ))}
-                      <div className="flex items-center gap-2 mt-2">
-                        <input
-                          className="input pl-3"
-                          style={{ padding: "7px 10px", fontSize: 13 }}
-                          placeholder="Add a comment…"
-                          value={commentDrafts[post.id] || ""}
-                          onChange={(e) => setCommentDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))}
-                          onKeyDown={(e) => e.key === "Enter" && handleAddComment(post.id)}
-                        />
-                        <button onClick={() => handleAddComment(post.id)} style={{ color: "var(--accent)" }} aria-label="Send comment">
-                          <Send size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </div>
-  );
-}
+    const current = community
