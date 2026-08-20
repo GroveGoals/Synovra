@@ -29,8 +29,10 @@ export async function PATCH(request, { params }) {
     if (typeof body.bannerDataUrl === "string") {
       data.bannerDataUrl = body.bannerDataUrl || null;
     }
+    if (typeof body.iconDataUrl === "string") {
+      data.iconDataUrl = body.iconDataUrl || null;
+    }
 
-    // Only the owner can change who has admin access
     if (Array.isArray(body.adminIds) && community.ownerId === userId) {
       data.adminIds = body.adminIds.filter((id) => typeof id === "string");
     }
