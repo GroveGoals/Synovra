@@ -50,4 +50,4 @@ export async function DELETE(request, { params }) {
     console.error("DELETE /api/communities/[id]/channels/[channelId] error:", err);
     return NextResponse.json({ error: "Database error, please retry." }, { status: 500 });
   }
-}
+} 
