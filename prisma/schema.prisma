@@ -94,11 +94,25 @@ model Community {
   name        String  @unique
   description String? @db.Text
   iconDataUrl String? @db.Text
+  bannerDataUrl String? @db.Text
 
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
   memberIds String[] @default([])
+  adminIds  String[] @default([])
+
+  createdAt DateTime @default(now())
+  posts     Post[]
+  channels  Channel[]
+}
+
+model Channel {
+  id          String  @id @default(uuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  name String
 
   createdAt DateTime @default(now())
   posts     Post[]
@@ -108,6 +122,9 @@ model Post {
   id          String    @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  channelId String?
+  channel   Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
