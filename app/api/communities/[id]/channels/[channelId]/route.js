@@ -14,16 +14,28 @@ export async function PATCH(request, { params }) {
     const community = await prisma.community.findUnique({ where: { id: params.id } });
     if (!community) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (!canManage(community, userId)) {
-      return NextResponse.json({ error: "You don't have permission to rename channels." }, { status: 403 });
+      return NextResponse.json({ error: "You don't have permission to edit channels." }, { status: 403 });
     }
 
     const body = await request.json();
-    const name = (body.name || "").trim().toLowerCase().replace(/\s+/g, "-");
-    if (!name) return NextResponse.json({ error: "Channel name is required." }, { status: 400 });
+    const data = {};
+
+    if (body.name !== undefined) {
+      const name = (body.name || "").trim().toLowerCase().replace(/\s+/g, "-");
+      if (!name) return NextResponse.json({ error: "Channel name is required." }, { status: 400 });
+      data.name = name;
+    }
+    if (body.visibility !== undefined) data.visibility = body.visibility === "restricted" ? "restricted" : "public";
+    if (body.allowedRoleIds !== undefined) data.allowedRoleIds = Array.isArray(body.allowedRoleIds) ? body.allowedRoleIds : [];
+    if (body.canSendMessages !== undefined) data.canSendMessages = !!body.canSendMessages;
+    if (body.canSendImages !== undefined) data.canSendImages = !!body.canSendImages;
+    if (body.canUseThreads !== undefined) data.canUseThreads = !!body.canUseThreads;
+    if (body.emojiMode !== undefined && ["all", "restricted_set", "none"].includes(body.emojiMode)) data.emojiMode = body.emojiMode;
+    if (body.allowedEmojis !== undefined) data.allowedEmojis = Array.isArray(body.allowedEmojis) ? body.allowedEmojis : [];
 
     const channel = await prisma.channel.update({
       where: { id: params.channelId },
-      data: { name },
+      data,
     });
 
     return NextResponse.json({ channel });
