@@ -13,7 +13,7 @@ export async function GET(request, { params }) {
   try {
     const channels = await prisma.channel.findMany({
       where: { communityId: params.id },
-      orderBy: { createdAt: "asc" },
+      orderBy: { order: "asc" },
     });
     return NextResponse.json({ channels });
   } catch (err) {
@@ -35,10 +35,12 @@ export async function POST(request, { params }) {
 
     const body = await request.json();
     const name = (body.name || "").trim().toLowerCase().replace(/\s+/g, "-");
+    const sectionId = body.sectionId || null;
     if (!name) return NextResponse.json({ error: "Channel name is required." }, { status: 400 });
 
+    const count = await prisma.channel.count({ where: { communityId: params.id } });
     const channel = await prisma.channel.create({
-      data: { communityId: params.id, name },
+      data: { communityId: params.id, name, sectionId, order: count },
     });
 
     return NextResponse.json({ channel });
