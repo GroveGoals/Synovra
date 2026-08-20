@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import {
   Crown, Users, Loader2, Heart, MessageCircle, Trash2, Send, AlertCircle,
   UserPlus, Link2, X as XIcon, Hash, Plus, Settings, ChevronLeft, ChevronDown,
-  Image as ImageIcon, Shield, ShieldOff, Calendar, ZoomIn,
+  ChevronRight, Image as ImageIcon, Shield, ShieldOff, Calendar, ZoomIn, Tag,
 } from "lucide-react";
 
 function relativeTime(dateStr) {
@@ -147,6 +147,8 @@ function CropModal({ image, aspect, shape, onCancel, onConfirm }) {
   );
 }
 
+const ROLE_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444"];
+
 export default function CommunityDetailClient({ communityId, currentUserId }) {
   const router = useRouter();
   const bannerInputRef = useRef(null);
@@ -159,13 +161,15 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [posts, setPosts] = useState([]);
   const [members, setMembers] = useState([]);
   const [events, setEvents] = useState([]);
+  const [roles, setRoles] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [postsLoading, setPostsLoading] = useState(false);
   const [channelListOpen, setChannelListOpen] = useState(false);
 
-  const [view, setView] = useState("feed");
+  const [view, setView] = useState("feed"); // "feed" | "members" | "settings" | "events"
+  const [settingsPage, setSettingsPage] = useState(null); // null | "overview" | "channels" | "roles" | "danger"
 
   const [newPost, setNewPost] = useState("");
   const [posting, setPosting] = useState(false);
@@ -197,6 +201,12 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [newEventDesc, setNewEventDesc] = useState("");
   const [creatingEvent, setCreatingEvent] = useState(false);
   const [eventError, setEventError] = useState("");
+
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleColor, setNewRoleColor] = useState(ROLE_COLORS[0]);
+  const [creatingRole, setCreatingRole] = useState(false);
+  const [roleError, setRoleError] = useState("");
+  const [expandedRoleId, setExpandedRoleId] = useState(null);
 
   const canManage = community && (community.isOwner || community.isAdmin);
 
@@ -268,10 +278,19 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     } catch (err) {}
   }, [communityId]);
 
+  const loadRoles = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/communities/${communityId}/roles`);
+      const data = await res.json();
+      if (res.ok) setRoles(data.roles || []);
+    } catch (err) {}
+  }, [communityId]);
+
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (activeChannelId) loadPosts(activeChannelId); }, [activeChannelId, loadPosts]);
   useEffect(() => { if (view === "members") loadMembers(); }, [view, loadMembers]);
   useEffect(() => { if (view === "events") loadEvents(); }, [view, loadEvents]);
+  useEffect(() => { if (settingsPage === "roles") { loadRoles(); loadMembers(); } }, [settingsPage, loadRoles, loadMembers]);
 
   async function toggleMembership() {
     if (community.isMember) {
@@ -533,6 +552,47 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     }
   }
 
+  async function handleCreateRole(e) {
+    e.preventDefault();
+    const name = newRoleName.trim();
+    if (!name) return;
+    setRoleError("");
+    setCreatingRole(true);
+    const res = await fetch(`/api/communities/${communityId}/roles`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, color: newRoleColor, permissions: [] }),
+    });
+    const data = await res.json();
+    setCreatingRole(false);
+    if (!res.ok) {
+      setRoleError(data.error || "Could not create role.");
+      return;
+    }
+    setNewRoleName("");
+    setRoles((prev) => [...prev, data.role]);
+  }
+
+  async function handleDeleteRole(role) {
+    if (!window.confirm(`Delete role "${role.name}"?`)) return;
+    await fetch(`/api/communities/${communityId}/roles/${role.id}`, { method: "DELETE" });
+    setRoles((prev) => prev.filter((r) => r.id !== role.id));
+  }
+
+  async function handleToggleRoleMember(role, memberId) {
+    const has = role.memberIds.includes(memberId);
+    const memberIds = has ? role.memberIds.filter((id) => id !== memberId) : [...role.memberIds, memberId];
+    const res = await fetch(`/api/communities/${communityId}/roles/${role.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberIds }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setRoles((prev) => prev.map((r) => (r.id === role.id ? data.role : r)));
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
@@ -617,7 +677,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
             </button>
             {canManage && (
               <button
-                onClick={() => setView(view === "settings" ? "feed" : "settings")}
+                onClick={() => { setView(view === "settings" ? "feed" : "settings"); setSettingsPage(null); }}
                 aria-label="Community settings"
                 style={{ color: "var(--text-muted)", background: "var(--surface-2)", border: "none", borderRadius: 10, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
               >
@@ -772,15 +832,55 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
         </div>
       )}
 
-      {view === "settings" && canManage && (
-        <div className="card p-4 mb-5">
-          <div className="flex items-center gap-2 mb-3">
+      {/* SETTINGS: top-level menu */}
+      {view === "settings" && canManage && !settingsPage && (
+        <div className="card p-2 mb-5">
+          <div className="flex items-center gap-2 p-2 mb-1">
             <button onClick={() => setView("feed")} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
               <ChevronLeft size={18} />
             </button>
             <h2 className="text-sm font-semibold">Community Settings</h2>
           </div>
+          {[
+            { key: "overview", label: "Overview", desc: "Name & description" },
+            { key: "channels", label: "Channels & Sections", desc: "Organize your channels" },
+            { key: "roles", label: "Roles", desc: "Custom roles & assignments" },
+          ].map((item) => (
+            <button
+              key={item.key}
+              onClick={() => setSettingsPage(item.key)}
+              className="flex items-center justify-between w-full p-3 rounded-xl"
+              style={{ background: "none", border: "none", textAlign: "left" }}
+            >
+              <div>
+                <div className="text-sm font-medium">{item.label}</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{item.desc}</div>
+              </div>
+              <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
+            </button>
+          ))}
+          {community.isOwner && (
+            <button
+              onClick={() => setSettingsPage("danger")}
+              className="flex items-center justify-between w-full p-3 rounded-xl"
+              style={{ background: "none", border: "none", textAlign: "left" }}
+            >
+              <div className="text-sm font-medium" style={{ color: "var(--danger, #e55)" }}>Danger Zone</div>
+              <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
+            </button>
+          )}
+        </div>
+      )}
 
+      {/* SETTINGS: Overview sub-page */}
+      {view === "settings" && settingsPage === "overview" && (
+        <div className="card p-4 mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
+              <ChevronLeft size={18} />
+            </button>
+            <h2 className="text-sm font-semibold">Overview</h2>
+          </div>
           <form onSubmit={handleSaveSettings} className="space-y-3">
             <div>
               <label className="text-xs" style={{ color: "var(--text-muted)" }}>Name</label>
@@ -792,93 +892,200 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
             </div>
             {settingsStatus && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{settingsStatus}</div>}
             <button type="submit" className="btn-primary" disabled={savingSettings}>
-              {savingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save Settings"}
+              {savingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save"}
             </button>
           </form>
-
-          <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-            <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Sections</h3>
-            <div className="space-y-1 mb-2">
-              {sections.map((s) => (
-                <div key={s.id} className="flex items-center justify-between text-sm py-1">
-                  <span>{s.name}</span>
-                  <button onClick={() => handleDeleteSection(s)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label={`Delete section ${s.name}`}>
-                    <XIcon size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-            <form onSubmit={handleCreateSection} className="flex items-center gap-2 mb-4">
-              <input
-                className="input pl-3"
-                style={{ padding: "8px 10px", fontSize: 13 }}
-                placeholder="New section name"
-                value={newSectionName}
-                onChange={(e) => setNewSectionName(e.target.value)}
-              />
-              <button type="submit" className="btn-primary" style={{ maxWidth: 90 }} disabled={creatingSection || !newSectionName.trim()}>
-                {creatingSection ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add</>}
-              </button>
-            </form>
-
-            <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Channels</h3>
-            <div className="space-y-1 mb-3">
-              {channels.map((c) => (
-                <div key={c.id} className="flex items-center justify-between text-sm py-1">
-                  <span className="flex items-center gap-1">
-                    <Hash size={13} /> {c.name}
-                    {c.sectionId && (
-                      <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        · {sections.find((s) => s.id === c.sectionId)?.name}
-                      </span>
-                    )}
-                  </span>
-                  {channels.length > 1 && (
-                    <button onClick={() => handleDeleteChannel(c)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label={`Delete #${c.name}`}>
-                      <XIcon size={14} />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-            <form onSubmit={handleCreateChannel} className="space-y-2">
-              {channelError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{channelError}</div>}
-              <input
-                className="input pl-3"
-                style={{ padding: "8px 10px", fontSize: 13 }}
-                placeholder="new-channel-name"
-                value={newChannelName}
-                onChange={(e) => setNewChannelName(e.target.value)}
-              />
-              {sections.length > 0 && (
-                <select
-                  className="input pl-3"
-                  style={{ padding: "8px 10px", fontSize: 13 }}
-                  value={newChannelSection}
-                  onChange={(e) => setNewChannelSection(e.target.value)}
-                >
-                  <option value="">No section</option>
-                  {sections.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              )}
-              <button type="submit" className="btn-primary" disabled={creatingChannel || !newChannelName.trim()}>
-                {creatingChannel ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Channel</>}
-              </button>
-            </form>
-
-            {community.isOwner && (
-              <div className="mt-5 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
-                <button onClick={handleDeleteCommunity} className="btn-primary" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
-                  <Trash2 size={14} /> Delete Community
-                </button>
-              </div>
-            )}
-          </div>
         </div>
       )}
 
+      {/* SETTINGS: Channels & Sections sub-page */}
+      {view === "settings" && settingsPage === "channels" && (
+        <div className="card p-4 mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
+              <ChevronLeft size={18} />
+            </button>
+            <h2 className="text-sm font-semibold">Channels & Sections</h2>
+          </div>
+
+          <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Sections</h3>
+          <div className="space-y-1 mb-2">
+            {sections.map((s) => (
+              <div key={s.id} className="flex items-center justify-between text-sm py-1">
+                <span>{s.name}</span>
+                <button onClick={() => handleDeleteSection(s)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label={`Delete section ${s.name}`}>
+                  <XIcon size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={handleCreateSection} className="flex items-center gap-2 mb-4">
+            <input
+              className="input pl-3"
+              style={{ padding: "8px 10px", fontSize: 13 }}
+              placeholder="New section name"
+              value={newSectionName}
+              onChange={(e) => setNewSectionName(e.target.value)}
+            />
+            <button type="submit" className="btn-primary" style={{ maxWidth: 90 }} disabled={creatingSection || !newSectionName.trim()}>
+              {creatingSection ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add</>}
+            </button>
+          </form>
+
+          <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Channels</h3>
+          <div className="space-y-1 mb-3">
+            {channels.map((c) => (
+              <div key={c.id} className="flex items-center justify-between text-sm py-1">
+                <span className="flex items-center gap-1">
+                  <Hash size={13} /> {c.name}
+                  {c.sectionId && (
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      · {sections.find((s) => s.id === c.sectionId)?.name}
+                    </span>
+                  )}
+                </span>
+                {channels.length > 1 && (
+                  <button onClick={() => handleDeleteChannel(c)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label={`Delete #${c.name}`}>
+                    <XIcon size={14} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <form onSubmit={handleCreateChannel} className="space-y-2">
+            {channelError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{channelError}</div>}
+            <input
+              className="input pl-3"
+              style={{ padding: "8px 10px", fontSize: 13 }}
+              placeholder="new-channel-name"
+              value={newChannelName}
+              onChange={(e) => setNewChannelName(e.target.value)}
+            />
+            {sections.length > 0 && (
+              <select
+                className="input pl-3"
+                style={{ padding: "8px 10px", fontSize: 13 }}
+                value={newChannelSection}
+                onChange={(e) => setNewChannelSection(e.target.value)}
+              >
+                <option value="">No section</option>
+                {sections.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            )}
+            <button type="submit" className="btn-primary" disabled={creatingChannel || !newChannelName.trim()}>
+              {creatingChannel ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Channel</>}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* SETTINGS: Roles sub-page */}
+      {view === "settings" && settingsPage === "roles" && (
+        <div className="card p-4 mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
+              <ChevronLeft size={18} />
+            </button>
+            <h2 className="text-sm font-semibold">Roles</h2>
+          </div>
+
+          <div className="space-y-2 mb-4">
+            {roles.map((role) => (
+              <div key={role.id} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+                <button
+                  onClick={() => setExpandedRoleId(expandedRoleId === role.id ? null : role.id)}
+                  className="flex items-center justify-between w-full p-3"
+                  style={{ background: "none", border: "none", textAlign: "left" }}
+                >
+                  <span className="flex items-center gap-2 text-sm font-medium">
+                    <Tag size={13} style={{ color: role.color || "var(--accent)" }} />
+                    {role.name}
+                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>({role.memberIds.length})</span>
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteRole(role); }}
+                      style={{ background: "none", border: "none", color: "var(--text-muted)" }}
+                      aria-label={`Delete role ${role.name}`}
+                    >
+                      <XIcon size={14} />
+                    </button>
+                    <ChevronDown size={14} style={{ transform: expandedRoleId === role.id ? "rotate(180deg)" : "none" }} />
+                  </div>
+                </button>
+                {expandedRoleId === role.id && (
+                  <div className="p-3 pt-0">
+                    <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Members with this role</div>
+                    <div className="space-y-1">
+                      {members.map((m) => (
+                        <label key={m.id} className="flex items-center gap-2 text-sm py-1">
+                          <input
+                            type="checkbox"
+                            checked={role.memberIds.includes(m.id)}
+                            onChange={() => handleToggleRoleMember(role, m.id)}
+                          />
+                          {m.username}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            {roles.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>No custom roles yet.</p>}
+          </div>
+
+          <form onSubmit={handleCreateRole} className="space-y-2">
+            {roleError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{roleError}</div>}
+            <input
+              className="input pl-3"
+              style={{ padding: "8px 10px", fontSize: 13 }}
+              placeholder="Role name"
+              value={newRoleName}
+              onChange={(e) => setNewRoleName(e.target.value)}
+            />
+            <div className="flex items-center gap-2">
+              {ROLE_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setNewRoleColor(c)}
+                  style={{
+                    width: 24, height: 24, borderRadius: "50%", background: c,
+                    border: newRoleColor === c ? "2px solid var(--text)" : "2px solid transparent",
+                  }}
+                  aria-label={`Color ${c}`}
+                />
+              ))}
+            </div>
+            <button type="submit" className="btn-primary" disabled={creatingRole || !newRoleName.trim()}>
+              {creatingRole ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Create Role</>}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* SETTINGS: Danger Zone sub-page */}
+      {view === "settings" && settingsPage === "danger" && community.isOwner && (
+        <div className="card p-4 mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
+              <ChevronLeft size={18} />
+            </button>
+            <h2 className="text-sm font-semibold">Danger Zone</h2>
+          </div>
+          <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+            Deleting this community removes all channels, posts, and comments permanently.
+          </p>
+          <button onClick={handleDeleteCommunity} className="btn-primary" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
+            <Trash2 size={14} /> Delete Community
+          </button>
+        </div>
+      )}
+
+      {/* FEED VIEW */}
       {view === "feed" && (
         <>
           <div className="card p-3 mb-4">
