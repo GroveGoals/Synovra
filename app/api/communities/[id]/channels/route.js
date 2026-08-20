@@ -39,8 +39,21 @@ export async function POST(request, { params }) {
     if (!name) return NextResponse.json({ error: "Channel name is required." }, { status: 400 });
 
     const count = await prisma.channel.count({ where: { communityId: params.id } });
+
     const channel = await prisma.channel.create({
-      data: { communityId: params.id, name, sectionId, order: count },
+      data: {
+        communityId: params.id,
+        name,
+        sectionId,
+        order: count,
+        visibility: body.visibility === "restricted" ? "restricted" : "public",
+        allowedRoleIds: Array.isArray(body.allowedRoleIds) ? body.allowedRoleIds : [],
+        canSendMessages: body.canSendMessages !== false,
+        canSendImages: body.canSendImages !== false,
+        canUseThreads: body.canUseThreads !== false,
+        emojiMode: ["all", "restricted_set", "none"].includes(body.emojiMode) ? body.emojiMode : "all",
+        allowedEmojis: Array.isArray(body.allowedEmojis) ? body.allowedEmojis : [],
+      },
     });
 
     return NextResponse.json({ channel });
