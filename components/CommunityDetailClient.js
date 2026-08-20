@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Crown, Users, Loader2, Heart, MessageCircle, Trash2, Send, AlertCircle,
+  UserPlus, Link2, X as XIcon,
 } from "lucide-react";
 
 function relativeTime(dateStr) {
@@ -39,6 +40,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const router = useRouter();
   const [community, setCommunity] = useState(null);
   const [posts, setPosts] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [newPost, setNewPost] = useState("");
@@ -46,6 +48,11 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [error, setError] = useState("");
   const [openComments, setOpenComments] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
+  const [showMembers, setShowMembers] = useState(false);
+  const [inviteUsername, setInviteUsername] = useState("");
+  const [inviteStatus, setInviteStatus] = useState("");
+  const [inviting, setInviting] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,9 +90,23 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     }
   }, [communityId]);
 
+  const loadMembers = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/communities/${communityId}/members`);
+      const data = await res.json();
+      if (res.ok) setMembers(data.members || []);
+    } catch (err) {
+      // silent fail, members panel just stays empty
+    }
+  }, [communityId]);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (showMembers) loadMembers();
+  }, [showMembers, loadMembers]);
 
   async function toggleMembership() {
     if (community.isMember) {
@@ -157,6 +178,45 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     }
   }
 
+  async function handleInvite(e) {
+    e.preventDefault();
+    const username = inviteUsername.trim();
+    if (!username) return;
+    setInviteStatus("");
+    setInviting(true);
+    const res = await fetch(`/api/communities/${communityId}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username }),
+    });
+    const data = await res.json();
+    setInviting(false);
+    if (!res.ok) {
+      setInviteStatus(data.error || "Could not invite that user.");
+      return;
+    }
+    setInviteStatus(`Added @${data.username}.`);
+    setInviteUsername("");
+    loadMembers();
+    load();
+  }
+
+  async function handleRemoveMember(memberId) {
+    if (!window.confirm("Remove this member from the community?")) return;
+    await fetch(`/api/communities/${communityId}/members/${memberId}`, { method: "DELETE" });
+    loadMembers();
+    load();
+  }
+
+  function handleCopyLink() {
+    const url = window.location.href;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
@@ -183,13 +243,17 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               <h1 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>{community.name}</h1>
               {community.isOwner && <Crown size={14} style={{ color: "#F0B75E" }} />}
             </div>
-            <div className="text-xs flex items-center gap-1" style={{ color: "var(--text-muted)" }}>
+            <button
+              onClick={() => setShowMembers((v) => !v)}
+              className="text-xs flex items-center gap-1"
+              style={{ color: "var(--text-muted)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+            >
               <Users size={12} /> {community.memberCount} member{community.memberCount === 1 ? "" : "s"}
-            </div>
+            </button>
           </div>
         </div>
         {community.description && <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>{community.description}</p>}
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {!community.isOwner && (
             <button
               onClick={toggleMembership}
@@ -199,6 +263,13 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               {community.isMember ? "Leave" : "Join"}
             </button>
           )}
+          <button
+            onClick={handleCopyLink}
+            className="btn-primary"
+            style={{ background: "var(--surface-2)", color: "var(--text)", maxWidth: 180 }}
+          >
+            <Link2 size={14} /> {linkCopied ? "Link copied!" : "Copy invite link"}
+          </button>
           {community.isOwner && (
             <button onClick={handleDeleteCommunity} className="btn-primary" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
               <Trash2 size={14} /> Delete Community
@@ -206,6 +277,54 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
           )}
         </div>
       </div>
+
+      {showMembers && (
+        <div className="card p-4 mb-5">
+          <h2 className="text-sm font-semibold mb-3">Members</h2>
+
+          {community.isOwner && (
+            <form onSubmit={handleInvite} className="flex items-center gap-2 mb-3">
+              <input
+                className="input pl-3"
+                style={{ padding: "8px 10px", fontSize: 13 }}
+                placeholder="Invite by username…"
+                value={inviteUsername}
+                onChange={(e) => setInviteUsername(e.target.value)}
+              />
+              <button type="submit" className="btn-primary" style={{ maxWidth: 100 }} disabled={inviting || !inviteUsername.trim()}>
+                {inviting ? <Loader2 size={14} className="animate-spin" /> : <><UserPlus size={14} /> Invite</>}
+              </button>
+            </form>
+          )}
+          {inviteStatus && (
+            <div className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>{inviteStatus}</div>
+          )}
+
+          <div className="space-y-2">
+            {members.map((m) => (
+              <div key={m.id} className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Avatar user={m} size={28} />
+                  <span className="text-sm">{m.username}</span>
+                  {m.isOwner && <Crown size={12} style={{ color: "#F0B75E" }} />}
+                </div>
+                {community.isOwner && !m.isOwner && (
+                  <button
+                    onClick={() => handleRemoveMember(m.id)}
+                    aria-label={`Remove ${m.username}`}
+                    style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    <XIcon size={15} />
+                  </button>
+                )}
+              </div>
+            ))}
+            {members.length === 0 && (
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>No members loaded yet.</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {community.isMember && (
         <form onSubmit={handlePost} className="card p-4 mb-5">
