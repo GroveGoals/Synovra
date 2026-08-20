@@ -23,6 +23,92 @@ function relativeTime(dateStr) {
   return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+/* ADDED: Get the user's actual device timezone and local date/time */
+function getUserDateTime() {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  const now = new Date();
+
+  return {
+    timezone,
+    iso: now.toISOString(),
+    date: new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      dateStyle: "long",
+    }).format(now),
+    time: new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      timeStyle: "long",
+    }).format(now),
+    weekday: new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      weekday: "long",
+    }).format(now),
+  };
+}
+
+/* ADDED: Understand commands such as:
+   "set a timer for 5 minutes"
+   "set timer for 30 seconds"
+   "start a timer for 2 hours"
+   "remind me in 10 minutes"
+*/
+function parseTimerCommand(text) {
+  const match = text.match(
+    /(?:set|start)\s+(?:a\s+)?timer\s+(?:for\s+)?(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/i
+  );
+
+  const reminderMatch = text.match(
+    /remind\s+me\s+in\s+(\d+(?:\.\d+)?)\s*(seconds?|secs?|minutes?|mins?|hours?|hrs?)/i
+  );
+
+  const result = match || reminderMatch;
+
+  if (!result) return null;
+
+  const amount = Number(result[1]);
+  const unit = result[2].toLowerCase();
+
+  let seconds = amount;
+
+  if (unit.startsWith("minute") || unit.startsWith("min")) {
+    seconds = amount * 60;
+  } else if (unit.startsWith("hour") || unit.startsWith("hr")) {
+    seconds = amount * 60 * 60;
+  }
+
+  return {
+    seconds: Math.round(seconds),
+    amount,
+    unit,
+  };
+}
+
+function formatTimerDuration(seconds) {
+  if (seconds < 60) {
+    return `${seconds} second${seconds === 1 ? "" : "s"}`;
+  }
+
+  if (seconds < 3600) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    if (remainingSeconds === 0) {
+      return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+    }
+
+    return `${minutes}m ${remainingSeconds}s`;
+  }
+
+  const hours = Math.floor(seconds / 3600);
+  const remainingMinutes = Math.floor((seconds % 3600) / 60);
+
+  if (remainingMinutes === 0) {
+    return `${hours} hour${hours === 1 ? "" : "s"}`;
+  }
+
+  return `${hours}h ${remainingMinutes}m`;
+}
+
 function CopyMessageButton({ text }) {
   const [copied, setCopied] = useState(false);
   function handleCopy() {
@@ -54,6 +140,11 @@ function SynaChatInner() {
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+
+  /* ADDED: Timer state */
+  const [timerEndAt, setTimerEndAt] = useState(null);
+  const [timerRemaining, setTimerRemaining] = useState(0);
+
   const bottomRef = useRef(null);
   const galleryInputRef = useRef(null);
   const cameraInputRef = useRef(null);
@@ -62,6 +153,55 @@ function SynaChatInner() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  /* ADDED: Real timer countdown */
+  useEffect(() => {
+    if (!timerEndAt) return;
+
+    const updateTimer = () => {
+      const remaining = Math.max(0, timerEndAt - Date.now());
+
+      setTimerRemaining(remaining);
+
+      if (remaining <= 0) {
+        setTimerEndAt(null);
+        setTimerRemaining(0);
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            text: "⏰ Your timer is finished!",
+          },
+        ]);
+
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Syna Timer", {
+            body: "⏰ Your timer is finished!",
+          });
+        } else {
+          try {
+            alert("⏰ Your timer is finished!");
+          } catch {
+            // Ignore alert errors.
+          }
+        }
+      }
+    };
+
+    updateTimer();
+
+    const interval = setInterval(updateTimer, 250);
+
+    return () => clearInterval(interval);
+  }, [timerEndAt]);
+
+  /* ADDED: Ask permission for timer notifications */
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
 
   const loadConversations = useCallback(async () => {
     setLoadingHistory(true);
@@ -150,6 +290,37 @@ function SynaChatInner() {
     if ((!text && !pendingAttachment) || loading) return;
 
     setError("");
+
+    /* ADDED: Handle actual timer commands */
+    const timer = text ? parseTimerCommand(text) : null;
+
+    if (timer && !pendingAttachment) {
+      const durationText = formatTimerDuration(timer.seconds);
+
+      const userMsg = {
+        role: "user",
+        text,
+      };
+
+      const timerReply = {
+        role: "assistant",
+        text: `⏱️ Timer set for **${durationText}**. I'll let you know when it's finished.`,
+      };
+
+      const timerMessages = [...messages, userMsg, timerReply];
+
+      setMessages(timerMessages);
+      setInput("");
+      setPendingAttachment(null);
+
+      const endAt = Date.now() + timer.seconds * 1000;
+      setTimerEndAt(endAt);
+      setTimerRemaining(timer.seconds * 1000);
+
+      persist(timerMessages);
+      return;
+    }
+
     const userMsg = { role: "user", text, attachment: pendingAttachment || undefined };
     const nextMessages = [...messages, userMsg];
     setMessages(nextMessages);
@@ -158,17 +329,25 @@ function SynaChatInner() {
     setLoading(true);
 
     try {
+      /* ADDED: Send the user's real local timezone/date/time to Syna */
+      const clientDateTime = getUserDateTime();
+
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages }),
+        body: JSON.stringify({
+          messages: nextMessages,
+          clientDateTime,
+        }),
       });
+
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Something went wrong.");
         setLoading(false);
         return;
       }
+
       const finalMessages = [...nextMessages, { role: "assistant", text: data.reply }];
       setMessages(finalMessages);
       persist(finalMessages);
@@ -399,6 +578,19 @@ function SynaChatInner() {
           <Send size={16} />
         </button>
       </form>
+
+      {/* ADDED: Show active timer */}
+      {timerEndAt && (
+        <div
+          className="text-center text-xs mt-2"
+          style={{
+            color: "var(--accent)",
+            fontWeight: 600,
+          }}
+        >
+          ⏱️ Timer: {formatTimerDuration(Math.ceil(timerRemaining / 1000))} remaining
+        </div>
+      )}
 
       <div
         style={{
