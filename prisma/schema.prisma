@@ -1,6 +1,4 @@
-// Synovra V1 — Phase 1 (auth) + Phase 2 (profile + nav) schema.
-// TODO(Phase 3+): AdminAction models get added in later phases.
-// Do not add them yet — keeping this file scoped to what's actually built.
+// Synovra V1 — Phase 1 (auth) + Phase 2 (profile + nav) + Phase 3 (communities) schema.
 
 generator client {
   provider = "prisma-client-js"
@@ -47,6 +45,7 @@ model User {
   posts            Post[]
   comments         Comment[]
   notifications    Notification[]
+  hostedEvents     Event[]
 }
 
 model Conversation {
@@ -105,6 +104,21 @@ model Community {
   createdAt DateTime @default(now())
   posts     Post[]
   channels  Channel[]
+  sections  Section[]
+  roles     Role[]
+  events    Event[]
+}
+
+model Section {
+  id          String  @id @default(uuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  name  String
+  order Int    @default(0)
+
+  createdAt DateTime @default(now())
+  channels  Channel[]
 }
 
 model Channel {
@@ -112,10 +126,44 @@ model Channel {
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
 
-  name String
+  sectionId String?
+  section   Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+
+  name  String
+  order Int    @default(0)
 
   createdAt DateTime @default(now())
   posts     Post[]
+}
+
+model Role {
+  id          String  @id @default(uuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  name        String
+  color       String?
+  permissions String[] @default([])
+  memberIds   String[] @default([])
+
+  createdAt DateTime @default(now())
+}
+
+model Event {
+  id          String  @id @default(uuid())
+  communityId String
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?  @db.Text
+  startTime   DateTime
+
+  hostId String
+  host   User   @relation(fields: [hostId], references: [id], onDelete: Cascade)
+
+  attendeeIds String[] @default([])
+
+  createdAt DateTime @default(now())
 }
 
 model Post {
@@ -129,8 +177,10 @@ model Post {
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
-  content  String   @db.Text
-  likedBy  String[] @default([])
+  content        String   @db.Text
+  likedBy        String[] @default([])
+  isAnnouncement Boolean  @default(false)
+  pinned         Boolean  @default(false)
 
   createdAt DateTime  @default(now())
   comments  Comment[]
