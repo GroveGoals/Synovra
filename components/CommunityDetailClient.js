@@ -151,6 +151,54 @@ const ROLE_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF
 const ACCENT_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#14B8A6", "#F472B6"];
 const CATEGORY_OPTIONS = ["Gaming", "Education", "Technology", "Art", "Business", "Music", "Photography", "AI", "Writing", "General"];
 
+const SETTINGS_NAV = [
+  { group: "Community", items: [
+    { key: "overview", label: "Overview" },
+    { key: "members", label: "Members" },
+    { key: "roles", label: "Roles" },
+    { key: "invites", label: "Invites" },
+  ]},
+  { group: "Structure", items: [
+    { key: "channels", label: "Categories & Channels" },
+  ]},
+  { group: "Danger Zone", items: [
+    { key: "danger", label: "Danger Zone", danger: true },
+  ]},
+];
+
+function SettingsSidebar({ settingsPage, setSettingsPage, isOwner }) {
+  return (
+    <div className="space-y-4">
+      {SETTINGS_NAV.map((section) => (
+        <div key={section.group}>
+          <div className="text-xs font-semibold mb-1 px-2" style={{ color: "var(--text-muted)", letterSpacing: 0.5, textTransform: "uppercase" }}>
+            {section.group}
+          </div>
+          {section.items.map((item) => {
+            if (item.key === "danger" && !isOwner) return null;
+            return (
+              <button
+                key={item.key}
+                onClick={() => setSettingsPage(item.key)}
+                className="w-full text-left text-sm px-3 py-2 rounded-lg mb-0.5"
+                style={{
+                  background: settingsPage === item.key ? "var(--accent-soft)" : "transparent",
+                  color: item.danger ? "var(--danger, #e55)" : settingsPage === item.key ? "var(--accent)" : "var(--text)",
+                  border: "none",
+                }}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function CommunityDetailClient({ communityId, currentUserId }) {
+
 export default function CommunityDetailClient({ communityId, currentUserId }) {
   const router = useRouter();
   const bannerInputRef = useRef(null);
