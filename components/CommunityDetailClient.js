@@ -148,6 +148,8 @@ function CropModal({ image, aspect, shape, onCancel, onConfirm }) {
 }
 
 const ROLE_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444"];
+const ACCENT_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#14B8A6", "#F472B6"];
+const CATEGORY_OPTIONS = ["Gaming", "Education", "Technology", "Art", "Business", "Music", "Photography", "AI", "Writing", "General"];
 
 export default function CommunityDetailClient({ communityId, currentUserId }) {
   const router = useRouter();
@@ -168,8 +170,8 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [postsLoading, setPostsLoading] = useState(false);
   const [channelListOpen, setChannelListOpen] = useState(false);
 
-  const [view, setView] = useState("feed"); // "feed" | "members" | "settings" | "events"
-  const [settingsPage, setSettingsPage] = useState(null); // null | "overview" | "channels" | "roles" | "danger"
+  const [view, setView] = useState("feed");
+  const [settingsPage, setSettingsPage] = useState(null);
 
   const [newPost, setNewPost] = useState("");
   const [posting, setPosting] = useState(false);
@@ -189,15 +191,12 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [newSectionName, setNewSectionName] = useState("");
   const [creatingSection, setCreatingSection] = useState(false);
 
-  // NEW: channel permission fields (create form)
-  const [newChannelVisibility, setNewChannelVisibility] = useState("public");
-  const [newChannelCanMessage, setNewChannelCanMessage] = useState(true);
-  const [newChannelCanImages, setNewChannelCanImages] = useState(true);
-  const [newChannelCanThreads, setNewChannelCanThreads] = useState(true);
-  const [newChannelEmojiMode, setNewChannelEmojiMode] = useState("all");
-
   const [settingsName, setSettingsName] = useState("");
   const [settingsDescription, setSettingsDescription] = useState("");
+  const [settingsSlug, setSettingsSlug] = useState("");
+  const [settingsCategory, setSettingsCategory] = useState("");
+  const [settingsTagsInput, setSettingsTagsInput] = useState("");
+  const [settingsAccentColor, setSettingsAccentColor] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsStatus, setSettingsStatus] = useState("");
 
@@ -243,6 +242,10 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
       setCommunity(cData.community || null);
       setSettingsName(cData.community?.name || "");
       setSettingsDescription(cData.community?.description || "");
+      setSettingsSlug(cData.community?.slug || "");
+      setSettingsCategory(cData.community?.category || "");
+      setSettingsTagsInput((cData.community?.tags || []).join(", "));
+      setSettingsAccentColor(cData.community?.accentColor || "");
       setChannels(loadedChannels);
       setSections(loadedSections);
       setActiveChannelId((prev) => prev || loadedChannels[0]?.id || null);
@@ -448,7 +451,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     setChannels((prev) => prev.map((c) => (c.sectionId === section.id ? { ...c, sectionId: null } : c)));
   }
 
-  // UPDATED: sends the new permission fields
   async function handleCreateChannel(e) {
     e.preventDefault();
     const name = newChannelName.trim();
@@ -458,15 +460,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     const res = await fetch(`/api/communities/${communityId}/channels`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        sectionId: newChannelSection || null,
-        visibility: newChannelVisibility,
-        canSendMessages: newChannelCanMessage,
-        canSendImages: newChannelCanImages,
-        canUseThreads: newChannelCanThreads,
-        emojiMode: newChannelEmojiMode,
-      }),
+      body: JSON.stringify({ name, sectionId: newChannelSection || null }),
     });
     const data = await res.json();
     setCreatingChannel(false);
@@ -520,10 +514,22 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     e.preventDefault();
     setSavingSettings(true);
     setSettingsStatus("");
+    const tags = settingsTagsInput
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
     const res = await fetch(`/api/communities/${communityId}/settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: settingsName, description: settingsDescription }),
+      body: JSON.stringify({
+        name: settingsName,
+        description: settingsDescription,
+        slug: settingsSlug,
+        category: settingsCategory,
+        tags,
+        accentColor: settingsAccentColor,
+      }),
     });
     const data = await res.json();
     setSavingSettings(false);
@@ -649,8 +655,8 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
             height: 110,
             cursor: canManage ? "pointer" : "default",
             background: community.bannerDataUrl
-              ? `url("${community.bannerDataUrl}") center/cover`
-              : "linear-gradient(135deg, var(--accent-soft), var(--surface-2))",
+              ? `url(${community.bannerDataUrl}) center/cover`
+              : `linear-gradient(135deg, ${community.accentColor || "var(--accent-soft)"}, var(--surface-2))`,
             position: "relative",
           }}
         >
@@ -702,6 +708,19 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
             )}
           </div>
           {community.description && <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>{community.description}</p>}
+          {community.tags && community.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {community.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="text-xs px-2 py-0.5 rounded-full"
+                  style={{ background: "var(--surface-2)", color: "var(--text-muted)" }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 flex-wrap">
             {!community.isOwner && (
               <button
@@ -848,7 +867,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
         </div>
       )}
 
-      {/* SETTINGS: top-level menu */}
       {view === "settings" && canManage && !settingsPage && (
         <div className="card p-2 mb-5">
           <div className="flex items-center gap-2 p-2 mb-1">
@@ -858,7 +876,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
             <h2 className="text-sm font-semibold">Community Settings</h2>
           </div>
           {[
-            { key: "overview", label: "Overview", desc: "Name & description" },
+            { key: "overview", label: "Overview", desc: "Name, URL, category & tags" },
             { key: "channels", label: "Channels & Sections", desc: "Organize your channels" },
             { key: "roles", label: "Roles", desc: "Custom roles & assignments" },
           ].map((item) => (
@@ -888,7 +906,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
         </div>
       )}
 
-      {/* SETTINGS: Overview sub-page */}
       {view === "settings" && settingsPage === "overview" && (
         <div className="card p-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
@@ -906,6 +923,57 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               <label className="text-xs" style={{ color: "var(--text-muted)" }}>Description</label>
               <input className="input pl-3 mt-1" value={settingsDescription} onChange={(e) => setSettingsDescription(e.target.value)} />
             </div>
+            <div>
+              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Community URL</label>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>/c/</span>
+                <input
+                  className="input pl-3"
+                  placeholder="your-community-name"
+                  value={settingsSlug}
+                  onChange={(e) => setSettingsSlug(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Category</label>
+              <select
+                className="input pl-3 mt-1"
+                value={settingsCategory}
+                onChange={(e) => setSettingsCategory(e.target.value)}
+              >
+                <option value="">No category</option>
+                {CATEGORY_OPTIONS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Tags (comma separated)</label>
+              <input
+                className="input pl-3 mt-1"
+                placeholder="e.g. beginners, weekly-events, chill"
+                value={settingsTagsInput}
+                onChange={(e) => setSettingsTagsInput(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Accent Color</label>
+              <div className="flex items-center gap-2 mt-1">
+                {ACCENT_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setSettingsAccentColor(c)}
+                    style={{
+                      width: 26, height: 26, borderRadius: "50%", background: c,
+                      border: settingsAccentColor === c ? "2px solid var(--text)" : "2px solid transparent",
+                    }}
+                    aria-label={`Accent color ${c}`}
+                  />
+                ))}
+              </div>
+            </div>
             {settingsStatus && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{settingsStatus}</div>}
             <button type="submit" className="btn-primary" disabled={savingSettings}>
               {savingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save"}
@@ -914,7 +982,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
         </div>
       )}
 
-      {/* SETTINGS: Channels & Sections sub-page */}
       {view === "settings" && settingsPage === "channels" && (
         <div className="card p-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
@@ -968,7 +1035,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               </div>
             ))}
           </div>
-
           <form onSubmit={handleCreateChannel} className="space-y-2">
             {channelError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{channelError}</div>}
             <input
@@ -991,44 +1057,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                 ))}
               </select>
             )}
-
-            <div className="text-xs font-semibold mt-2" style={{ color: "var(--text-muted)" }}>Who can see this channel</div>
-            <select
-              className="input pl-3"
-              style={{ padding: "8px 10px", fontSize: 13 }}
-              value={newChannelVisibility}
-              onChange={(e) => setNewChannelVisibility(e.target.value)}
-            >
-              <option value="public">Public — all members</option>
-              <option value="restricted">Restricted — specific roles only</option>
-            </select>
-
-            <div className="text-xs font-semibold mt-2" style={{ color: "var(--text-muted)" }}>Permissions in this channel</div>
-            <label className="flex items-center gap-2 text-sm py-1">
-              <input type="checkbox" checked={newChannelCanMessage} onChange={(e) => setNewChannelCanMessage(e.target.checked)} />
-              Members can send messages
-            </label>
-            <label className="flex items-center gap-2 text-sm py-1">
-              <input type="checkbox" checked={newChannelCanImages} onChange={(e) => setNewChannelCanImages(e.target.checked)} />
-              Members can send images
-            </label>
-            <label className="flex items-center gap-2 text-sm py-1">
-              <input type="checkbox" checked={newChannelCanThreads} onChange={(e) => setNewChannelCanThreads(e.target.checked)} />
-              Members can use threads
-            </label>
-
-            <div className="text-xs font-semibold mt-2" style={{ color: "var(--text-muted)" }}>Emoji</div>
-            <select
-              className="input pl-3"
-              style={{ padding: "8px 10px", fontSize: 13 }}
-              value={newChannelEmojiMode}
-              onChange={(e) => setNewChannelEmojiMode(e.target.value)}
-            >
-              <option value="all">Allow all emoji</option>
-              <option value="restricted_set">Restrict to a set (configure after creating)</option>
-              <option value="none">No emoji</option>
-            </select>
-
             <button type="submit" className="btn-primary" disabled={creatingChannel || !newChannelName.trim()}>
               {creatingChannel ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Channel</>}
             </button>
@@ -1036,7 +1064,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
         </div>
       )}
 
-      {/* SETTINGS: Roles sub-page */}
       {view === "settings" && settingsPage === "roles" && (
         <div className="card p-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
@@ -1122,7 +1149,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
         </div>
       )}
 
-      {/* SETTINGS: Danger Zone sub-page */}
       {view === "settings" && settingsPage === "danger" && community.isOwner && (
         <div className="card p-4 mb-5">
           <div className="flex items-center gap-2 mb-3">
@@ -1140,7 +1166,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
         </div>
       )}
 
-      {/* FEED VIEW */}
       {view === "feed" && (
         <>
           <div className="card p-3 mb-4">
@@ -1234,13 +1259,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                     )}
                   </div>
                   <p className="text-sm mb-3" style={{ overflowWrap: "anywhere" }}>{post.content}</p>
-                  {post.imageUrl && (
-                    <img
-                      src={post.imageUrl}
-                      alt=""
-                      style={{ width: "100%", borderRadius: 12, marginBottom: 12, display: "block" }}
-                    />
-                  )}
                   <div className="flex items-center gap-4">
                     <button onClick={() => handleLike(post)} className="flex items-center gap-1.5 text-xs" style={{ color: post.likedByMe ? "var(--danger)" : "var(--text-muted)" }}>
                       <Heart size={15} fill={post.likedByMe ? "var(--danger)" : "none"} /> {post.likeCount}
@@ -1285,7 +1303,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
             </div>
           )}
 
-          {community.isMember && activeChannel && activeChannel.canSendMessages !== false && (
+          {community.isMember && activeChannel && (
             <form onSubmit={handlePost} className="flex items-center gap-2" style={{ position: "sticky", bottom: 12 }}>
               {error && (
                 <div className="alert alert-error" style={{ position: "absolute", bottom: "100%", left: 0, right: 0, marginBottom: 8 }}>
@@ -1316,11 +1334,6 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                 {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               </button>
             </form>
-          )}
-          {community.isMember && activeChannel && activeChannel.canSendMessages === false && (
-            <p className="text-xs text-center py-2" style={{ color: "var(--text-muted)" }}>
-              Messages are turned off in #{activeChannel.name}.
-            </p>
           )}
         </>
       )}
