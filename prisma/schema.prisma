@@ -124,14 +124,7 @@ model Section {
   channels  Channel[]
 }
 
-model Channel {model Channel {
-  // ...all existing fields stay...
-
-  viewAccess    Json?   // { type: "everyone"|"roles"|"members"|"moderators"|"administrators"|"owner", roleIds: [], memberIds: [] }
-  sendAccess    Json?
-  threadAccess  Json?
-  manageAccess  Json?
-}
+model Channel {
   id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
@@ -141,6 +134,20 @@ model Channel {model Channel {
   type  String @default("text") // "text" | "announcement" | "media"
   order Int    @default(0)
   archived Boolean @default(false)
+
+  visibility      String   @default("public")
+  allowedRoleIds  String[] @default([])
+  canSendMessages Boolean  @default(true)
+  canSendImages   Boolean  @default(true)
+  canUseThreads   Boolean  @default(true)
+  emojiMode       String   @default("all")
+  allowedEmojis   String[] @default([])
+
+  viewAccess    Json?
+  sendAccess    Json?
+  threadAccess  Json?
+  manageAccess  Json?
+
   createdAt DateTime @default(now())
   posts     Post[]
 }
@@ -233,6 +240,7 @@ model Post {
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   content        String   @db.Text
+  imageUrl       String?  @db.Text
   likedBy        String[] @default([])
   isAnnouncement Boolean  @default(false)
   pinned         Boolean  @default(false)
