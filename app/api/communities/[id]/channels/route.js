@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { canManageChannels } from "@/lib/channelPermissions";
+import { sanitizeAccessConfig } from "@/lib/channelAccess";
 
 const VALID_TYPES = ["text", "announcement", "media"];
 
@@ -42,6 +43,11 @@ export async function POST(request, { params }) {
 
     const count = await prisma.channel.count({ where: { communityId: params.id } });
 
+    const viewAccess = sanitizeAccessConfig(body.viewAccess) || { type: "everyone" };
+    const sendAccess = sanitizeAccessConfig(body.sendAccess) || { type: "everyone" };
+    const threadAccess = sanitizeAccessConfig(body.threadAccess) || { type: "everyone" };
+    const manageAccess = sanitizeAccessConfig(body.manageAccess) || { type: "administrators" };
+
     const channel = await prisma.channel.create({
       data: {
         communityId: params.id,
@@ -49,13 +55,15 @@ export async function POST(request, { params }) {
         sectionId,
         type,
         order: count,
-        visibility: body.visibility === "restricted" ? "restricted" : "public",
-        allowedRoleIds: Array.isArray(body.allowedRoleIds) ? body.allowedRoleIds : [],
-        canSendMessages: body.canSendMessages !== false,
-        canSendImages: body.canSendImages !== false,
-        canUseThreads: body.canUseThreads !== false,
-        emojiMode: ["all", "restricted_set", "none"].includes(body.emojiMode) ? body.emojiMode : "all",
-        allowedEmojis: Array.isArray(body.allowedEmojis) ? body.allowedEmojis : [],
+        viewAccess,
+        sendAccess,
+        threadAccess,
+        manageAccess,
+        // old fields kept in sync for anything still reading them
+        visibility: viewAccess.type === "everyone" ? "public" : "restricted",
+        allowedRoleIds: viewAccess.type === "roles" ? viewAccess.roleIds : [],
+        canSendMessages: sendAccess.type !== "owner",
+        canUseThreads: threadAccess.type !== "owner",
       },
     });
 
