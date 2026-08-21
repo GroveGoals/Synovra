@@ -232,9 +232,6 @@ model Event {
 }
 
 model Post {
-  // ...all existing fields stay, add this one:
-  title String? @db.Text
-}
   id          String    @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
@@ -242,6 +239,7 @@ model Post {
   channel   Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  title          String?  @db.Text
   content        String   @db.Text
   imageUrl       String?  @db.Text
   likedBy        String[] @default([])
