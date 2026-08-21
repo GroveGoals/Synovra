@@ -253,3 +253,28 @@ model Notification {
   read        Boolean @default(false)
   createdAt DateTime @default(now())
 }
+model Community {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String? @db.Text
+  iconDataUrl String? @db.Text
+  bannerDataUrl String? @db.Text
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  memberIds String[] @default([])
+  adminIds  String[] @default([])
+
+  slug        String?  @unique     // ← NEW, added here
+  category    String?              // ← NEW
+  tags        String[] @default([]) // ← NEW
+  accentColor String?              // ← NEW
+
+  createdAt DateTime @default(now())
+  posts     Post[]
+  channels  Channel[]
+  sections  Section[]
+  roles     Role[]
+  events    Event[]
+}
