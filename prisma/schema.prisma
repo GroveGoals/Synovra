@@ -1,14 +1,17 @@
 model User {
-  id       String @id @default(uuid())
+  id String @id @default(uuid())
 
   username    String @unique
   displayName String
 
   email String @unique
 
-  dateOfBirth            DateTime?
-  birthdayEmailEnabled   Boolean @default(true)
-  lastBirthdayEmailYear  Int?
+  dateOfBirth           DateTime?
+  birthdayEmailEnabled  Boolean  @default(true)
+  lastBirthdayEmailYear Int?
+
+  usernameChangedAt    DateTime?
+  displayNameChangedAt DateTime?
 
   passwordHash String
   verified     Boolean @default(false)
@@ -18,7 +21,7 @@ model User {
   avatarDataUrl String? @db.Text
   country       String?
   language      String   @default("English")
-  isPublic      Boolean @default(true)
+  isPublic      Boolean  @default(true)
 
   verificationCode    String?
   verificationExpires DateTime?
