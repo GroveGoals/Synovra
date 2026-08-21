@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canManageChannel } from "@/lib/channelAccess";
 import { sanitizeAccessConfig } from "@/lib/channelAccess";
 
-const VALID_TYPES = ["text", "announcement", "media"];
+const VALID_TYPES = ["text", "announcement", "media", "forum", "voice", "event"];
 
 export async function PATCH(request, { params }) {
   const userId = getSessionUserId();
