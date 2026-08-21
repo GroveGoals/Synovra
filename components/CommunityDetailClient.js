@@ -198,8 +198,6 @@ function SettingsSidebar({ settingsPage, setSettingsPage, isOwner }) {
 }
 
 export default function CommunityDetailClient({ communityId, currentUserId }) {
-
-export default function CommunityDetailClient({ communityId, currentUserId }) {
   const router = useRouter();
   const bannerInputRef = useRef(null);
   const iconInputRef = useRef(null);
@@ -915,302 +913,282 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
         </div>
       )}
 
-      {view === "settings" && canManage && !settingsPage && (
-        <div className="card p-2 mb-5">
-          <div className="flex items-center gap-2 p-2 mb-1">
+      {view === "settings" && canManage && (
+        <div className="mb-5">
+          <div className="flex items-center gap-2 p-2 mb-3">
             <button onClick={() => setView("feed")} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
               <ChevronLeft size={18} />
             </button>
             <h2 className="text-sm font-semibold">Community Settings</h2>
           </div>
-          {[
-            { key: "overview", label: "Overview", desc: "Name, URL, category & tags" },
-            { key: "channels", label: "Channels & Sections", desc: "Organize your channels" },
-            { key: "roles", label: "Roles", desc: "Custom roles & assignments" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              onClick={() => setSettingsPage(item.key)}
-              className="flex items-center justify-between w-full p-3 rounded-xl"
-              style={{ background: "none", border: "none", textAlign: "left" }}
-            >
-              <div>
-                <div className="text-sm font-medium">{item.label}</div>
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>{item.desc}</div>
-              </div>
-              <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
-            </button>
-          ))}
-          {community.isOwner && (
-            <button
-              onClick={() => setSettingsPage("danger")}
-              className="flex items-center justify-between w-full p-3 rounded-xl"
-              style={{ background: "none", border: "none", textAlign: "left" }}
-            >
-              <div className="text-sm font-medium" style={{ color: "var(--danger, #e55)" }}>Danger Zone</div>
-              <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
-            </button>
-          )}
-        </div>
-      )}
-
-      {view === "settings" && settingsPage === "overview" && (
-        <div className="card p-4 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
-              <ChevronLeft size={18} />
-            </button>
-            <h2 className="text-sm font-semibold">Overview</h2>
-          </div>
-          <form onSubmit={handleSaveSettings} className="space-y-3">
-            <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Name</label>
-              <input className="input pl-3 mt-1" value={settingsName} onChange={(e) => setSettingsName(e.target.value)} />
+          <div className="grid" style={{ gridTemplateColumns: "180px 1fr", gap: 16 }}>
+            <div className="card p-2">
+              <SettingsSidebar settingsPage={settingsPage || "overview"} setSettingsPage={setSettingsPage} isOwner={community.isOwner} />
             </div>
             <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Description</label>
-              <input className="input pl-3 mt-1" value={settingsDescription} onChange={(e) => setSettingsDescription(e.target.value)} />
-            </div>
-            <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Community URL</label>
-              <div className="flex items-center gap-1 mt-1">
-                <span className="text-xs" style={{ color: "var(--text-muted)" }}>/c/</span>
-                <input
-                  className="input pl-3"
-                  placeholder="your-community-name"
-                  value={settingsSlug}
-                  onChange={(e) => setSettingsSlug(e.target.value)}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Category</label>
-              <select
-                className="input pl-3 mt-1"
-                value={settingsCategory}
-                onChange={(e) => setSettingsCategory(e.target.value)}
-              >
-                <option value="">No category</option>
-                {CATEGORY_OPTIONS.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Tags (comma separated)</label>
-              <input
-                className="input pl-3 mt-1"
-                placeholder="e.g. beginners, weekly-events, chill"
-                value={settingsTagsInput}
-                onChange={(e) => setSettingsTagsInput(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="text-xs" style={{ color: "var(--text-muted)" }}>Accent Color</label>
-              <div className="flex items-center gap-2 mt-1">
-                {ACCENT_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setSettingsAccentColor(c)}
-                    style={{
-                      width: 26, height: 26, borderRadius: "50%", background: c,
-                      border: settingsAccentColor === c ? "2px solid var(--text)" : "2px solid transparent",
-                    }}
-                    aria-label={`Accent color ${c}`}
-                  />
-                ))}
-              </div>
-            </div>
-            {settingsStatus && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{settingsStatus}</div>}
-            <button type="submit" className="btn-primary" disabled={savingSettings}>
-              {savingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save"}
-            </button>
-          </form>
-        </div>
-      )}
+              {!settingsPage && <p className="text-xs p-3" style={{ color: "var(--text-muted)" }}>Choose a section from the left.</p>}
 
-      {view === "settings" && settingsPage === "channels" && (
-        <div className="card p-4 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
-              <ChevronLeft size={18} />
-            </button>
-            <h2 className="text-sm font-semibold">Channels & Sections</h2>
-          </div>
-
-          <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Sections</h3>
-          <div className="space-y-1 mb-2">
-            {sections.map((s) => (
-              <div key={s.id} className="flex items-center justify-between text-sm py-1">
-                <span>{s.name}</span>
-                <button onClick={() => handleDeleteSection(s)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label={`Delete section ${s.name}`}>
-                  <XIcon size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-          <form onSubmit={handleCreateSection} className="flex items-center gap-2 mb-4">
-            <input
-              className="input pl-3"
-              style={{ padding: "8px 10px", fontSize: 13 }}
-              placeholder="New section name"
-              value={newSectionName}
-              onChange={(e) => setNewSectionName(e.target.value)}
-            />
-            <button type="submit" className="btn-primary" style={{ maxWidth: 90 }} disabled={creatingSection || !newSectionName.trim()}>
-              {creatingSection ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add</>}
-            </button>
-          </form>
-
-          <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Channels</h3>
-          <div className="space-y-1 mb-3">
-            {channels.map((c) => (
-              <div key={c.id} className="flex items-center justify-between text-sm py-1">
-                <span className="flex items-center gap-1">
-                  <Hash size={13} /> {c.name}
-                  {c.sectionId && (
-                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      · {sections.find((s) => s.id === c.sectionId)?.name}
-                    </span>
-                  )}
-                </span>
-                {channels.length > 1 && (
-                  <button onClick={() => handleDeleteChannel(c)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label={`Delete #${c.name}`}>
-                    <XIcon size={14} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-          <form onSubmit={handleCreateChannel} className="space-y-2">
-            {channelError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{channelError}</div>}
-            <input
-              className="input pl-3"
-              style={{ padding: "8px 10px", fontSize: 13 }}
-              placeholder="new-channel-name"
-              value={newChannelName}
-              onChange={(e) => setNewChannelName(e.target.value)}
-            />
-            {sections.length > 0 && (
-              <select
-                className="input pl-3"
-                style={{ padding: "8px 10px", fontSize: 13 }}
-                value={newChannelSection}
-                onChange={(e) => setNewChannelSection(e.target.value)}
-              >
-                <option value="">No section</option>
-                {sections.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            )}
-            <button type="submit" className="btn-primary" disabled={creatingChannel || !newChannelName.trim()}>
-              {creatingChannel ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Channel</>}
-            </button>
-          </form>
-        </div>
-      )}
-
-      {view === "settings" && settingsPage === "roles" && (
-        <div className="card p-4 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
-              <ChevronLeft size={18} />
-            </button>
-            <h2 className="text-sm font-semibold">Roles</h2>
-          </div>
-
-          <div className="space-y-2 mb-4">
-            {roles.map((role) => (
-              <div key={role.id} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
-                <button
-                  onClick={() => setExpandedRoleId(expandedRoleId === role.id ? null : role.id)}
-                  className="flex items-center justify-between w-full p-3"
-                  style={{ background: "none", border: "none", textAlign: "left" }}
-                >
-                  <span className="flex items-center gap-2 text-sm font-medium">
-                    <Tag size={13} style={{ color: role.color || "var(--accent)" }} />
-                    {role.name}
-                    <span className="text-xs" style={{ color: "var(--text-muted)" }}>({role.memberIds.length})</span>
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleDeleteRole(role); }}
-                      style={{ background: "none", border: "none", color: "var(--text-muted)" }}
-                      aria-label={`Delete role ${role.name}`}
-                    >
-                      <XIcon size={14} />
+              {settingsPage === "overview" && (
+                <div className="card p-4 mb-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
+                      <ChevronLeft size={18} />
                     </button>
-                    <ChevronDown size={14} style={{ transform: expandedRoleId === role.id ? "rotate(180deg)" : "none" }} />
+                    <h2 className="text-sm font-semibold">Overview</h2>
                   </div>
-                </button>
-                {expandedRoleId === role.id && (
-                  <div className="p-3 pt-0">
-                    <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Members with this role</div>
-                    <div className="space-y-1">
-                      {members.map((m) => (
-                        <label key={m.id} className="flex items-center gap-2 text-sm py-1">
-                          <input
-                            type="checkbox"
-                            checked={role.memberIds.includes(m.id)}
-                            onChange={() => handleToggleRoleMember(role, m.id)}
+                  <form onSubmit={handleSaveSettings} className="space-y-3">
+                    <div>
+                      <label className="text-xs" style={{ color: "var(--text-muted)" }}>Name</label>
+                      <input className="input pl-3 mt-1" value={settingsName} onChange={(e) => setSettingsName(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-xs" style={{ color: "var(--text-muted)" }}>Description</label>
+                      <input className="input pl-3 mt-1" value={settingsDescription} onChange={(e) => setSettingsDescription(e.target.value)} />
+                    </div>
+                    <div>
+                      <label className="text-xs" style={{ color: "var(--text-muted)" }}>Community URL</label>
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="text-xs" style={{ color: "var(--text-muted)" }}>/c/</span>
+                        <input
+                          className="input pl-3"
+                          placeholder="your-community-name"
+                          value={settingsSlug}
+                          onChange={(e) => setSettingsSlug(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs" style={{ color: "var(--text-muted)" }}>Category</label>
+                      <select
+                        className="input pl-3 mt-1"
+                        value={settingsCategory}
+                        onChange={(e) => setSettingsCategory(e.target.value)}
+                      >
+                        <option value="">No category</option>
+                        {CATEGORY_OPTIONS.map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs" style={{ color: "var(--text-muted)" }}>Tags (comma separated)</label>
+                      <input
+                        className="input pl-3 mt-1"
+                        placeholder="e.g. beginners, weekly-events, chill"
+                        value={settingsTagsInput}
+                        onChange={(e) => setSettingsTagsInput(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs" style={{ color: "var(--text-muted)" }}>Accent Color</label>
+                      <div className="flex items-center gap-2 mt-1">
+                        {ACCENT_COLORS.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setSettingsAccentColor(c)}
+                            style={{
+                              width: 26, height: 26, borderRadius: "50%", background: c,
+                              border: settingsAccentColor === c ? "2px solid var(--text)" : "2px solid transparent",
+                            }}
+                            aria-label={`Accent color ${c}`}
                           />
-                          {m.username}
-                        </label>
+                        ))}
+                      </div>
+                    </div>
+                    {settingsStatus && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{settingsStatus}</div>}
+                    <button type="submit" className="btn-primary" disabled={savingSettings}>
+                      {savingSettings ? <Loader2 size={14} className="animate-spin" /> : "Save"}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {settingsPage === "channels" && (
+                <div className="card p-4 mb-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
+                      <ChevronLeft size={18} />
+                    </button>
+                    <h2 className="text-sm font-semibold">Channels & Sections</h2>
+                  </div>
+
+                  <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Sections</h3>
+                  <div className="space-y-1 mb-2">
+                    {sections.map((s) => (
+                      <div key={s.id} className="flex items-center justify-between text-sm py-1">
+                        <span>{s.name}</span>
+                        <button onClick={() => handleDeleteSection(s)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label={`Delete section ${s.name}`}>
+                          <XIcon size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <form onSubmit={handleCreateSection} className="flex items-center gap-2 mb-4">
+                    <input
+                      className="input pl-3"
+                      style={{ padding: "8px 10px", fontSize: 13 }}
+                      placeholder="New section name"
+                      value={newSectionName}
+                      onChange={(e) => setNewSectionName(e.target.value)}
+                    />
+                    <button type="submit" className="btn-primary" style={{ maxWidth: 90 }} disabled={creatingSection || !newSectionName.trim()}>
+                      {creatingSection ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add</>}
+                    </button>
+                  </form>
+
+                  <h3 className="text-xs font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Channels</h3>
+                  <div className="space-y-1 mb-3">
+                    {channels.map((c) => (
+                      <div key={c.id} className="flex items-center justify-between text-sm py-1">
+                        <span className="flex items-center gap-1">
+                          <Hash size={13} /> {c.name}
+                          {c.sectionId && (
+                            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                              · {sections.find((s) => s.id === c.sectionId)?.name}
+                            </span>
+                          )}
+                        </span>
+                        {channels.length > 1 && (
+                          <button onClick={() => handleDeleteChannel(c)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label={`Delete #${c.name}`}>
+                            <XIcon size={14} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <form onSubmit={handleCreateChannel} className="space-y-2">
+                    {channelError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{channelError}</div>}
+                    <input
+                      className="input pl-3"
+                      style={{ padding: "8px 10px", fontSize: 13 }}
+                      placeholder="new-channel-name"
+                      value={newChannelName}
+                      onChange={(e) => setNewChannelName(e.target.value)}
+                    />
+                    {sections.length > 0 && (
+                      <select
+                        className="input pl-3"
+                        style={{ padding: "8px 10px", fontSize: 13 }}
+                        value={newChannelSection}
+                        onChange={(e) => setNewChannelSection(e.target.value)}
+                      >
+                        <option value="">No section</option>
+                        {sections.map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    )}
+                    <button type="submit" className="btn-primary" disabled={creatingChannel || !newChannelName.trim()}>
+                      {creatingChannel ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Channel</>}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {settingsPage === "roles" && (
+                <div className="card p-4 mb-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
+                      <ChevronLeft size={18} />
+                    </button>
+                    <h2 className="text-sm font-semibold">Roles</h2>
+                  </div>
+
+                  <div className="space-y-2 mb-4">
+                    {roles.map((role) => (
+                      <div key={role.id} style={{ border: "1px solid var(--border)", borderRadius: 12, overflow: "hidden" }}>
+                        <button
+                          onClick={() => setExpandedRoleId(expandedRoleId === role.id ? null : role.id)}
+                          className="flex items-center justify-between w-full p-3"
+                          style={{ background: "none", border: "none", textAlign: "left" }}
+                        >
+                          <span className="flex items-center gap-2 text-sm font-medium">
+                            <Tag size={13} style={{ color: role.color || "var(--accent)" }} />
+                            {role.name}
+                            <span className="text-xs" style={{ color: "var(--text-muted)" }}>({role.memberIds.length})</span>
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteRole(role); }}
+                              style={{ background: "none", border: "none", color: "var(--text-muted)" }}
+                              aria-label={`Delete role ${role.name}`}
+                            >
+                              <XIcon size={14} />
+                            </button>
+                            <ChevronDown size={14} style={{ transform: expandedRoleId === role.id ? "rotate(180deg)" : "none" }} />
+                          </div>
+                        </button>
+                        {expandedRoleId === role.id && (
+                          <div className="p-3 pt-0">
+                            <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>Members with this role</div>
+                            <div className="space-y-1">
+                              {members.map((m) => (
+                                <label key={m.id} className="flex items-center gap-2 text-sm py-1">
+                                  <input
+                                    type="checkbox"
+                                    checked={role.memberIds.includes(m.id)}
+                                    onChange={() => handleToggleRoleMember(role, m.id)}
+                                  />
+                                  {m.username}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {roles.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>No custom roles yet.</p>}
+                  </div>
+
+                  <form onSubmit={handleCreateRole} className="space-y-2">
+                    {roleError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{roleError}</div>}
+                    <input
+                      className="input pl-3"
+                      style={{ padding: "8px 10px", fontSize: 13 }}
+                      placeholder="Role name"
+                      value={newRoleName}
+                      onChange={(e) => setNewRoleName(e.target.value)}
+                    />
+                    <div className="flex items-center gap-2">
+                      {ROLE_COLORS.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setNewRoleColor(c)}
+                          style={{
+                            width: 24, height: 24, borderRadius: "50%", background: c,
+                            border: newRoleColor === c ? "2px solid var(--text)" : "2px solid transparent",
+                          }}
+                          aria-label={`Color ${c}`}
+                        />
                       ))}
                     </div>
+                    <button type="submit" className="btn-primary" disabled={creatingRole || !newRoleName.trim()}>
+                      {creatingRole ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Create Role</>}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {settingsPage === "danger" && community.isOwner && (
+                <div className="card p-4 mb-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
+                      <ChevronLeft size={18} />
+                    </button>
+                    <h2 className="text-sm font-semibold">Danger Zone</h2>
                   </div>
-                )}
-              </div>
-            ))}
-            {roles.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>No custom roles yet.</p>}
-          </div>
-
-          <form onSubmit={handleCreateRole} className="space-y-2">
-            {roleError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{roleError}</div>}
-            <input
-              className="input pl-3"
-              style={{ padding: "8px 10px", fontSize: 13 }}
-              placeholder="Role name"
-              value={newRoleName}
-              onChange={(e) => setNewRoleName(e.target.value)}
-            />
-            <div className="flex items-center gap-2">
-              {ROLE_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setNewRoleColor(c)}
-                  style={{
-                    width: 24, height: 24, borderRadius: "50%", background: c,
-                    border: newRoleColor === c ? "2px solid var(--text)" : "2px solid transparent",
-                  }}
-                  aria-label={`Color ${c}`}
-                />
-              ))}
+                  <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+                    Deleting this community removes all channels, posts, and comments permanently.
+                  </p>
+                  <button onClick={handleDeleteCommunity} className="btn-primary" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
+                    <Trash2 size={14} /> Delete Community
+                  </button>
+                </div>
+              )}
             </div>
-            <button type="submit" className="btn-primary" disabled={creatingRole || !newRoleName.trim()}>
-              {creatingRole ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Create Role</>}
-            </button>
-          </form>
-        </div>
-      )}
-
-      {view === "settings" && settingsPage === "danger" && community.isOwner && (
-        <div className="card p-4 mb-5">
-          <div className="flex items-center gap-2 mb-3">
-            <button onClick={() => setSettingsPage(null)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
-              <ChevronLeft size={18} />
-            </button>
-            <h2 className="text-sm font-semibold">Danger Zone</h2>
           </div>
-          <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
-            Deleting this community removes all channels, posts, and comments permanently.
-          </p>
-          <button onClick={handleDeleteCommunity} className="btn-primary" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
-            <Trash2 size={14} /> Delete Community
-          </button>
         </div>
       )}
 
