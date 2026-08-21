@@ -41,6 +41,7 @@ export async function GET(request, { params }) {
 
     const formatted = posts.map((p) => ({
       id: p.id,
+      title: p.title,
       content: p.content,
       imageUrl: p.imageUrl,
       createdAt: p.createdAt,
@@ -70,6 +71,7 @@ export async function POST(request, { params }) {
     }
 
     const body = await request.json();
+    const title = (body.title || "").trim();
     const content = (body.content || "").trim();
     const imageUrl = body.imageUrl || null;
     const channelId = body.channelId || null;
@@ -77,9 +79,17 @@ export async function POST(request, { params }) {
       return NextResponse.json({ error: "Post content is required." }, { status: 400 });
     }
 
+    let channel = null;
     if (channelId) {
-      const channel = await prisma.channel.findUnique({ where: { id: channelId } });
+      channel = await prisma.channel.findUnique({ where: { id: channelId } });
       if (!channel) return NextResponse.json({ error: "Channel not found." }, { status: 404 });
+
+      if (channel.type === "voice") {
+        return NextResponse.json({ error: "Voice channels don't support text posts." }, { status: 400 });
+      }
+      if (channel.type === "forum" && !title) {
+        return NextResponse.json({ error: "Forum posts require a title." }, { status: 400 });
+      }
 
       const roles = await prisma.role.findMany({ where: { communityId: params.id } });
       if (!canSendInChannel(channel, community, roles, userId)) {
@@ -91,13 +101,20 @@ export async function POST(request, { params }) {
     }
 
     const post = await prisma.post.create({
-      data: { communityId: params.id, channelId, authorId: userId, content, imageUrl },
+      data: {
+        communityId: params.id,
+        channelId,
+        authorId: userId,
+        title: channel?.type === "forum" ? title : null,
+        content,
+        imageUrl,
+      },
       include: { author: { select: authorSelect } },
     });
 
     return NextResponse.json({
       post: {
-        id: post.id, content: post.content, imageUrl: post.imageUrl,
+        id: post.id, title: post.title, content: post.content, imageUrl: post.imageUrl,
         createdAt: post.createdAt, channelId: post.channelId, author: post.author,
         likeCount: 0, likedByMe: false, comments: [],
       },
