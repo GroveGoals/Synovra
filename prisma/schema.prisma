@@ -134,6 +134,15 @@ model Channel {
   type  String @default("text") // "text" | "announcement" | "media"
   order Int    @default(0)
   archived Boolean @default(false)
+
+  visibility      String   @default("public")   // "public" | "restricted"
+  allowedRoleIds  String[] @default([])
+  canSendMessages Boolean  @default(true)
+  canSendImages   Boolean  @default(true)
+  canUseThreads   Boolean  @default(true)
+  emojiMode       String   @default("all")       // "all" | "restricted_set" | "none"
+  allowedEmojis   String[] @default([])
+
   createdAt DateTime @default(now())
   posts     Post[]
 }
@@ -226,6 +235,7 @@ model Post {
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   content        String   @db.Text
+  imageUrl       String?  @db.Text
   likedBy        String[] @default([])
   isAnnouncement Boolean  @default(false)
   pinned         Boolean  @default(false)
@@ -252,29 +262,4 @@ model Notification {
   description String
   read        Boolean @default(false)
   createdAt DateTime @default(now())
-}
-model Community {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  description String? @db.Text
-  iconDataUrl String? @db.Text
-  bannerDataUrl String? @db.Text
-
-  ownerId String
-  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  memberIds String[] @default([])
-  adminIds  String[] @default([])
-
-  slug        String?  @unique     // ← NEW, added here
-  category    String?              // ← NEW
-  tags        String[] @default([]) // ← NEW
-  accentColor String?              // ← NEW
-
-  createdAt DateTime @default(now())
-  posts     Post[]
-  channels  Channel[]
-  sections  Section[]
-  roles     Role[]
-  events    Event[]
 }
