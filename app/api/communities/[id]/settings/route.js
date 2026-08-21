@@ -6,6 +6,14 @@ function canManage(community, userId) {
   return community.ownerId === userId || community.adminIds.includes(userId);
 }
 
+function slugify(input) {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export async function PATCH(request, { params }) {
   const userId = getSessionUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,6 +33,19 @@ export async function PATCH(request, { params }) {
     if (typeof body.bannerDataUrl === "string") data.bannerDataUrl = body.bannerDataUrl || null;
     if (typeof body.iconDataUrl === "string") data.iconDataUrl = body.iconDataUrl || null;
     if (typeof body.welcomeMessage === "string") data.welcomeMessage = body.welcomeMessage.trim() || null;
+    if (typeof body.category === "string") data.category = body.category.trim() || null;
+    if (typeof body.accentColor === "string") data.accentColor = body.accentColor || null;
+    if (Array.isArray(body.tags)) data.tags = body.tags.filter((t) => typeof t === "string" && t.trim()).map((t) => t.trim());
+
+    if (typeof body.slug === "string" && body.slug.trim()) {
+      const clean = slugify(body.slug);
+      if (!clean) return NextResponse.json({ error: "Invalid slug." }, { status: 400 });
+      const existing = await prisma.community.findUnique({ where: { slug: clean } });
+      if (existing && existing.id !== params.id) {
+        return NextResponse.json({ error: "That URL is already taken." }, { status: 409 });
+      }
+      data.slug = clean;
+    }
 
     if (Array.isArray(body.adminIds) && community.ownerId === userId) {
       data.adminIds = body.adminIds.filter((id) => typeof id === "string");
@@ -36,10 +57,14 @@ export async function PATCH(request, { params }) {
       community: {
         id: updated.id,
         name: updated.name,
+        slug: updated.slug,
         description: updated.description,
         iconDataUrl: updated.iconDataUrl,
         bannerDataUrl: updated.bannerDataUrl,
         welcomeMessage: updated.welcomeMessage,
+        category: updated.category,
+        tags: updated.tags,
+        accentColor: updated.accentColor,
         adminIds: updated.adminIds,
       },
     });
