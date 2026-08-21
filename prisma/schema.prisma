@@ -124,8 +124,14 @@ model Section {
   channels  Channel[]
 }
 
-model Channel {viewRoleIds Json?
-  sendRoleIds Json?
+model Channel {model Channel {
+  // ...all existing fields stay...
+
+  viewAccess    Json?   // { type: "everyone"|"roles"|"members"|"moderators"|"administrators"|"owner", roleIds: [], memberIds: [] }
+  sendAccess    Json?
+  threadAccess  Json?
+  manageAccess  Json?
+}
   id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
