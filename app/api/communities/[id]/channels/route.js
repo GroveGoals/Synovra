@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-function canManage(community, userId) {
-  return community.ownerId === userId || community.adminIds.includes(userId);
-}
+import { canManageChannels } from "@/lib/channelPermissions";
 
 const VALID_TYPES = ["text", "announcement", "media"];
 
@@ -31,7 +28,9 @@ export async function POST(request, { params }) {
   try {
     const community = await prisma.community.findUnique({ where: { id: params.id } });
     if (!community) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    if (!canManage(community, userId)) {
+
+    const roles = await prisma.role.findMany({ where: { communityId: params.id } });
+    if (!canManageChannels(community, roles, userId)) {
       return NextResponse.json({ error: "You don't have permission to add channels." }, { status: 403 });
     }
 
