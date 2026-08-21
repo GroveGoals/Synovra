@@ -1,265 +1,43 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 model User {
   id       String @id @default(uuid())
-  username String @unique
-  email    String @unique
+
+  username    String @unique
+  displayName String
+
+  email String @unique
+
+  dateOfBirth            DateTime?
+  birthdayEmailEnabled   Boolean @default(true)
+  lastBirthdayEmailYear  Int?
 
   passwordHash String
   verified     Boolean @default(false)
   online       Boolean @default(false)
   lastSeenAt   DateTime?
 
-  avatarDataUrl String?  @db.Text
+  avatarDataUrl String? @db.Text
   country       String?
   language      String   @default("English")
-  isPublic      Boolean  @default(true)
+  isPublic      Boolean @default(true)
 
   verificationCode    String?
   verificationExpires DateTime?
-  resetCode    String?
-  resetExpires DateTime?
-  lastCodeSentAt DateTime?
-  failedLoginAttempts Int       @default(0)
+  resetCode           String?
+  resetExpires        DateTime?
+  lastCodeSentAt      DateTime?
+  failedLoginAttempts Int      @default(0)
   lockedUntil         DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   conversations Conversation[]
-  toolRuns      ToolRun[]
-  collections   Collection[]
+  toolRuns ToolRun[]
+  collections Collection[]
   ownedCommunities Community[]
-  posts            Post[]
-  comments         Comment[]
-  notifications    Notification[]
-  hostedEvents     Event[]
-  modActions       ModerationAction[] @relation("ModActionModerator")
-}
-
-model Conversation {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title    String
-  messages Json
-  pinned Boolean @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model ToolRun {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  toolId       String
-  toolLabel    String
-  inputSummary String
-  result       String  @db.Text
-  favorited    Boolean @default(false)
-  collectionId String?
-  collection   Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
-  createdAt DateTime @default(now())
-}
-
-model Collection {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name String
-  createdAt DateTime  @default(now())
-  toolRuns  ToolRun[]
-}
-
-model Community {
-  id          String  @id @default(uuid())
-  name        String  @unique
-  slug        String? @unique
-  description String? @db.Text
-  iconDataUrl String? @db.Text
-  bannerDataUrl String? @db.Text
-  category    String?
-  tags        String[] @default([])
-  accentColor String?
-
-  joinMode      String  @default("anyone") // "anyone" | "request" | "invite_only" | "private"
-  discoverable  Boolean @default(true)
-
-  welcomeMessage    String? @db.Text
-  defaultChannelId  String?
-
-  ownerId String
-  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
-  memberIds String[] @default([])
-  adminIds  String[] @default([])
-
-  createdAt DateTime @default(now())
-  posts     Post[]
-  channels  Channel[]
-  sections  Section[]
-  roles     Role[]
-  events    Event[]
-  rules     Rule[]
-  invites   Invite[]
-  reports   Report[]
-  modActions ModerationAction[]
-  applications JoinApplication[]
-}
-
-model Section {
-  id          String  @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  name  String
-  order Int    @default(0)
-  createdAt DateTime @default(now())
-  channels  Channel[]
-}
-
-model Channel {
-  id          String  @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  sectionId String?
-  section   Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-  name  String
-  type  String @default("text") // "text" | "announcement" | "media"
-  order Int    @default(0)
-  archived Boolean @default(false)
-
-  visibility      String   @default("public")   // "public" | "restricted"
-  allowedRoleIds  String[] @default([])
-  canSendMessages Boolean  @default(true)
-  canSendImages   Boolean  @default(true)
-  canUseThreads   Boolean  @default(true)
-  emojiMode       String   @default("all")       // "all" | "restricted_set" | "none"
-  allowedEmojis   String[] @default([])
-
-  createdAt DateTime @default(now())
-  posts     Post[]
-}
-
-model Role {
-  id          String  @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  name        String
-  color       String?
-  position    Int      @default(0)
-  permissions String[] @default([])
-  memberIds   String[] @default([])
-  createdAt DateTime @default(now())
-}
-
-model Rule {
-  id          String  @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  text  String @db.Text
-  order Int    @default(0)
-  createdAt DateTime @default(now())
-}
-
-model Invite {
-  id          String  @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  code       String   @unique
-  maxUses    Int?
-  useCount   Int      @default(0)
-  expiresAt  DateTime?
-  createdAt  DateTime @default(now())
-}
-
-model Report {
-  id          String  @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  reporterId  String
-  targetType  String   // "post" | "comment" | "member"
-  targetId    String
-  reason      String   @db.Text
-  status      String   @default("open") // "open" | "reviewing" | "resolved"
-  createdAt   DateTime @default(now())
-}
-
-model ModerationAction {
-  id          String  @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  moderatorId String
-  moderator   User   @relation("ModActionModerator", fields: [moderatorId], references: [id], onDelete: Cascade)
-  targetUserId String
-  action      String   // "warn" | "remove_message" | "restrict" | "remove" | "ban"
-  reason      String?  @db.Text
-  createdAt   DateTime @default(now())
-}
-
-model JoinApplication {
-  id          String  @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  applicantId String
-  answers     Json?
-  status      String   @default("pending") // "pending" | "approved" | "rejected"
-  createdAt   DateTime @default(now())
-}
-
-model Event {
-  id          String  @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  title       String
-  description String?  @db.Text
-  startTime   DateTime
-  hostId String
-  host   User   @relation(fields: [hostId], references: [id], onDelete: Cascade)
-  attendeeIds String[] @default([])
-  createdAt DateTime @default(now())
-}
-
-model Post {
-  id          String    @id @default(uuid())
-  communityId String
-  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
-  channelId String?
-  channel   Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  authorId String
-  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  content        String   @db.Text
-  imageUrl       String?  @db.Text
-  likedBy        String[] @default([])
-  isAnnouncement Boolean  @default(false)
-  pinned         Boolean  @default(false)
-  createdAt DateTime  @default(now())
-  comments  Comment[]
-}
-
-model Comment {
-  id     String @id @default(uuid())
-  postId String
-  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId String
-  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  content String @db.Text
-  createdAt DateTime @default(now())
-}
-
-model Notification {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category    String
-  title       String
-  description String
-  read        Boolean @default(false)
-  createdAt DateTime @default(now())
+  posts Post[]
+  comments Comment[]
+  notifications Notification[]
+  hostedEvents Event[]
+  modActions ModerationAction[] @relation("ModActionModerator")
 }
