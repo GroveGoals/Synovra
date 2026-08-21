@@ -1,16 +1,71 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search, Users, Plus, Check, X, Loader2, Crown } from "lucide-react";
+import {
+  Search, Users, Plus, Check, X, Loader2, Crown, ImageIcon, ArrowRight, ArrowLeft, UserPlus,
+} from "lucide-react";
+
+const CATEGORY_OPTIONS = ["Social", "Gaming", "Education", "Technology", "Art", "Business", "Music", "Photography", "AI", "Writing", "General"];
+
+function Avatar({ name, iconDataUrl, size = 44 }) {
+  if (iconDataUrl) {
+    return <img src={iconDataUrl} alt="" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />;
+  }
+  return (
+    <div
+      style={{
+        width: size, height: size, borderRadius: "50%", flexShrink: 0,
+        background: "var(--accent-soft)", color: "var(--accent)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "var(--font-display)", fontWeight: 600, fontSize: size * 0.4,
+      }}
+    >
+      {name?.slice(0, 2).toUpperCase() || "?"}
+    </div>
+  );
+}
+
+function centerCropToSquareDataUrl(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const size = Math.min(img.width, img.height);
+        const sx = (img.width - size) / 2;
+        const sy = (img.height - size) / 2;
+        const canvas = document.createElement("canvas");
+        canvas.width = 300;
+        canvas.height = 300;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, 300, 300);
+        resolve(canvas.toDataURL("image/jpeg", 0.88));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function CommunitiesClient() {
+  const router = useRouter();
+  const iconInputRef = useRef(null);
+
   const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [creating, setCreating] = useState(false);
+
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [step, setStep] = useState(1);
   const [newName, setNewName] = useState("");
   const [newDescription, setNewDescription] = useState("");
+  const [newCategory, setNewCategory] = useState("Social");
+  const [newVisibility, setNewVisibility] = useState("public");
+  const [newIconDataUrl, setNewIconDataUrl] = useState("");
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [createdCommunity, setCreatedCommunity] = useState(null);
 
   const load = useCallback(async (q) => {
     setLoading(true);
@@ -35,22 +90,58 @@ export default function CommunitiesClient() {
     return () => clearTimeout(handle);
   }, [query, load]);
 
-  async function handleCreate(e) {
-    e.preventDefault();
+  function openWizard() {
+    setStep(1);
+    setNewName("");
+    setNewDescription("");
+    setNewCategory("Social");
+    setNewVisibility("public");
+    setNewIconDataUrl("");
     setError("");
+    setCreatedCommunity(null);
+    setWizardOpen(true);
+  }
+
+  async function handleIconFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await centerCropToSquareDataUrl(file);
+    setNewIconDataUrl(dataUrl);
+    e.target.value = "";
+  }
+
+  function goToReview(e) {
+    e.preventDefault();
+    if (!newName.trim()) {
+      setError("Community name is required.");
+      return;
+    }
+    setError("");
+    setStep(2);
+  }
+
+  async function handleCreate() {
+    setError("");
+    setCreating(true);
     const res = await fetch("/api/communities", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName, description: newDescription }),
+      body: JSON.stringify({
+        name: newName,
+        description: newDescription,
+        category: newCategory,
+        visibility: newVisibility,
+        iconDataUrl: newIconDataUrl,
+      }),
     });
     const data = await res.json();
+    setCreating(false);
     if (!res.ok) {
       setError(data.error || "Could not create community.");
       return;
     }
-    setNewName("");
-    setNewDescription("");
-    setCreating(false);
+    setCreatedCommunity(data.community);
+    setStep(3);
     load(query);
   }
 
@@ -77,45 +168,13 @@ export default function CommunitiesClient() {
         />
       </div>
 
-      {creating ? (
-        <form onSubmit={handleCreate} className="card p-4 mb-4 space-y-3">
-          {error && <div className="alert alert-error">{error}</div>}
-          <input
-            className="input pl-3"
-            placeholder="Community name"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            autoFocus
-          />
-          <input
-            className="input pl-3"
-            placeholder="Description (optional)"
-            value={newDescription}
-            onChange={(e) => setNewDescription(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <button type="submit" className="btn-primary" style={{ maxWidth: 140 }}>
-              <Check size={15} /> Create
-            </button>
-            <button
-              type="button"
-              onClick={() => setCreating(false)}
-              className="btn-primary"
-              style={{ maxWidth: 140, background: "var(--surface-2)", color: "var(--text)" }}
-            >
-              <X size={15} /> Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <button
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-2 p-3 rounded-xl mb-4 text-sm font-medium"
-          style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-        >
-          <Plus size={16} /> Create Community
-        </button>
-      )}
+      <button
+        onClick={openWizard}
+        className="flex items-center gap-2 p-3 rounded-xl mb-4 text-sm font-medium"
+        style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+      >
+        <Plus size={16} /> Create Community
+      </button>
 
       {loading && (
         <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
@@ -133,16 +192,7 @@ export default function CommunitiesClient() {
         {communities.map((c) => (
           <Link key={c.id} href={`/communities/${c.id}`} className="card flex items-center justify-between p-3.5">
             <div className="flex items-center gap-3" style={{ minWidth: 0 }}>
-              {c.iconDataUrl ? (
-                <img src={c.iconDataUrl} alt="" className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
-              ) : (
-                <div
-                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 font-semibold"
-                  style={{ background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-display)" }}
-                >
-                  {c.name.slice(0, 2).toUpperCase()}
-                </div>
-              )}
+              <Avatar name={c.name} iconDataUrl={c.iconDataUrl} size={44} />
               <div style={{ minWidth: 0 }}>
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-semibold" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -171,6 +221,156 @@ export default function CommunitiesClient() {
           </Link>
         ))}
       </div>
+
+      {wizardOpen && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "var(--surface)", zIndex: 150,
+            display: "flex", flexDirection: "column", overflowY: "auto",
+          }}
+        >
+          <div
+            className="flex items-center gap-3 p-4"
+            style={{ borderBottom: "1px solid var(--border)", position: "sticky", top: 0, background: "var(--surface)", zIndex: 1 }}
+          >
+            {step < 3 && (
+              <button
+                onClick={() => (step === 1 ? setWizardOpen(false) : setStep(step - 1))}
+                aria-label="Back"
+                style={{ background: "none", border: "none", color: "var(--text)" }}
+              >
+                <ArrowLeft size={20} />
+              </button>
+            )}
+            <h1 className="text-base font-semibold">
+              {step === 1 ? "Create Community" : step === 2 ? "Review" : "Community Created"}
+            </h1>
+          </div>
+
+          <div className="p-4" style={{ maxWidth: 460, margin: "0 auto", width: "100%" }}>
+            {step === 1 && (
+              <form onSubmit={goToReview} className="space-y-4">
+                <div className="flex flex-col items-center gap-2 mb-2">
+                  <div onClick={() => iconInputRef.current?.click()} style={{ cursor: "pointer", position: "relative" }}>
+                    <Avatar name={newName || "?"} iconDataUrl={newIconDataUrl} size={72} />
+                    <div style={{ position: "absolute", bottom: -2, right: -2, background: "var(--accent)", borderRadius: "50%", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <ImageIcon size={12} color="white" />
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => iconInputRef.current?.click()} className="text-xs font-semibold" style={{ color: "var(--accent)", background: "none", border: "none" }}>
+                    {newIconDataUrl ? "Change icon" : "Add icon"}
+                  </button>
+                  <input ref={iconInputRef} type="file" accept="image/*" onChange={handleIconFileChange} style={{ display: "none" }} />
+                </div>
+
+                {error && <div className="alert alert-error">{error}</div>}
+
+                <div>
+                  <label className="text-xs" style={{ color: "var(--text-muted)" }}>Community Name</label>
+                  <input
+                    className="input pl-3 mt-1"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs" style={{ color: "var(--text-muted)" }}>Description (optional)</label>
+                  <input
+                    className="input pl-3 mt-1"
+                    value={newDescription}
+                    onChange={(e) => setNewDescription(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs" style={{ color: "var(--text-muted)" }}>Community Type</label>
+                  <select
+                    className="input pl-3 mt-1"
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                  >
+                    {CATEGORY_OPTIONS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs" style={{ color: "var(--text-muted)" }}>Visibility</label>
+                  <select
+                    className="input pl-3 mt-1"
+                    value={newVisibility}
+                    onChange={(e) => setNewVisibility(e.target.value)}
+                  >
+                    <option value="public">Public — anyone can find and join</option>
+                    <option value="private">Private — invite only</option>
+                  </select>
+                </div>
+
+                <button type="submit" className="btn-primary">
+                  Next <ArrowRight size={15} />
+                </button>
+              </form>
+            )}
+
+            {step === 2 && (
+              <div>
+                <div className="card p-4 mb-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Avatar name={newName} iconDataUrl={newIconDataUrl} size={56} />
+                    <div>
+                      <div className="text-base font-semibold">{newName}</div>
+                      {newDescription && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{newDescription}</div>}
+                    </div>
+                  </div>
+                  <div className="text-xs space-y-1" style={{ color: "var(--text-muted)" }}>
+                    <div>Type: <span style={{ color: "var(--text)" }}>{newCategory}</span></div>
+                    <div>Visibility: <span style={{ color: "var(--text)" }}>{newVisibility === "public" ? "Public" : "Private"}</span></div>
+                  </div>
+                </div>
+                {error && <div className="alert alert-error mb-3">{error}</div>}
+                <button onClick={handleCreate} className="btn-primary" disabled={creating}>
+                  {creating ? <Loader2 size={15} className="animate-spin" /> : <>Create Community</>}
+                </button>
+              </div>
+            )}
+
+            {step === 3 && createdCommunity && (
+              <div className="text-center py-6">
+                <div
+                  style={{
+                    width: 56, height: 56, borderRadius: "50%", background: "var(--accent-soft)",
+                    display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px",
+                  }}
+                >
+                  <Check size={26} style={{ color: "var(--accent)" }} />
+                </div>
+                <h2 className="text-lg font-semibold mb-1">Your community is ready!</h2>
+                <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
+                  Start building it your way. Add channels and invite members to get started.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => router.push(`/communities/${createdCommunity.id}`)}
+                    className="btn-primary"
+                  >
+                    Go to Community
+                  </button>
+                  <button
+                    onClick={() => router.push(`/communities/${createdCommunity.id}`)}
+                    className="btn-primary"
+                    style={{ background: "var(--surface-2)", color: "var(--text)" }}
+                  >
+                    <UserPlus size={15} /> Invite Members
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
