@@ -62,7 +62,7 @@ model ToolRun {
   toolId       String
   toolLabel    String
   inputSummary String
-  result       String @db.Text
+  result       String  @db.Text
   favorited    Boolean @default(false)
   collectionId String?
   collection   Collection? @relation(fields: [collectionId], references: [id], onDelete: SetNull)
@@ -115,7 +115,7 @@ model Community {
 }
 
 model Section {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   name  String
@@ -125,7 +125,7 @@ model Section {
 }
 
 model Channel {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   sectionId String?
@@ -134,15 +134,6 @@ model Channel {
   type  String @default("text") // "text" | "announcement" | "media"
   order Int    @default(0)
   archived Boolean @default(false)
-
-  visibility      String   @default("public")   // "public" | "restricted"
-  allowedRoleIds  String[] @default([])
-  canSendMessages Boolean @default(true)
-  canSendImages   Boolean @default(true)
-  canUseThreads   Boolean @default(true)
-  emojiMode       String   @default("all")       // "all" | "restricted_set" | "none"
-  allowedEmojis   String[] @default([])
-
   createdAt DateTime @default(now())
   posts     Post[]
 }
@@ -160,11 +151,11 @@ model Role {
 }
 
 model Rule {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   text  String @db.Text
-  order Int      @default(0)
+  order Int    @default(0)
   createdAt DateTime @default(now())
 }
 
@@ -176,7 +167,7 @@ model Invite {
   maxUses    Int?
   useCount   Int      @default(0)
   expiresAt  DateTime?
-  createdAt DateTime  @default(now())
+  createdAt  DateTime @default(now())
 }
 
 model Report {
@@ -188,38 +179,38 @@ model Report {
   targetId    String
   reason      String   @db.Text
   status      String   @default("open") // "open" | "reviewing" | "resolved"
-  createdAt DateTime @default(now())
+  createdAt   DateTime @default(now())
 }
 
 model ModerationAction {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   moderatorId String
   moderator   User   @relation("ModActionModerator", fields: [moderatorId], references: [id], onDelete: Cascade)
   targetUserId String
   action      String   // "warn" | "remove_message" | "restrict" | "remove" | "ban"
-  reason      String? @db.Text
-  createdAt DateTime @default(now())
+  reason      String?  @db.Text
+  createdAt   DateTime @default(now())
 }
 
 model JoinApplication {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   applicantId String
   answers     Json?
   status      String   @default("pending") // "pending" | "approved" | "rejected"
-  createdAt DateTime @default(now())
+  createdAt   DateTime @default(now())
 }
 
 model Event {
-  id          String @id @default(uuid())
+  id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   title       String
   description String?  @db.Text
-  startTime DateTime
+  startTime   DateTime
   hostId String
   host   User   @relation(fields: [hostId], references: [id], onDelete: Cascade)
   attendeeIds String[] @default([])
@@ -234,8 +225,7 @@ model Post {
   channel   Channel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
   authorId String
   author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  content        String  @db.Text
-  imageUrl       String?  @db.Text
+  content        String   @db.Text
   likedBy        String[] @default([])
   isAnnouncement Boolean  @default(false)
   pinned         Boolean  @default(false)
@@ -262,3 +252,4 @@ model Notification {
   description String
   read        Boolean @default(false)
   createdAt DateTime @default(now())
+}
