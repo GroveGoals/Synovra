@@ -50,6 +50,7 @@ model Conversation {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   title    String
   messages Json
+  pinned Boolean @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
