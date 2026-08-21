@@ -20,18 +20,11 @@ export async function PATCH(request, { params }) {
     const body = await request.json();
     const data = {};
 
-    if (typeof body.name === "string" && body.name.trim()) {
-      data.name = body.name.trim();
-    }
-    if (typeof body.description === "string") {
-      data.description = body.description.trim() || null;
-    }
-    if (typeof body.bannerDataUrl === "string") {
-      data.bannerDataUrl = body.bannerDataUrl || null;
-    }
-    if (typeof body.iconDataUrl === "string") {
-      data.iconDataUrl = body.iconDataUrl || null;
-    }
+    if (typeof body.name === "string" && body.name.trim()) data.name = body.name.trim();
+    if (typeof body.description === "string") data.description = body.description.trim() || null;
+    if (typeof body.bannerDataUrl === "string") data.bannerDataUrl = body.bannerDataUrl || null;
+    if (typeof body.iconDataUrl === "string") data.iconDataUrl = body.iconDataUrl || null;
+    if (typeof body.welcomeMessage === "string") data.welcomeMessage = body.welcomeMessage.trim() || null;
 
     if (Array.isArray(body.adminIds) && community.ownerId === userId) {
       data.adminIds = body.adminIds.filter((id) => typeof id === "string");
@@ -46,6 +39,7 @@ export async function PATCH(request, { params }) {
         description: updated.description,
         iconDataUrl: updated.iconDataUrl,
         bannerDataUrl: updated.bannerDataUrl,
+        welcomeMessage: updated.welcomeMessage,
         adminIds: updated.adminIds,
       },
     });
