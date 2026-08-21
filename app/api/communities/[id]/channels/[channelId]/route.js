@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canManageChannels } from "@/lib/channelPermissions";
+import { canManageChannel } from "@/lib/channelAccess";
+import { sanitizeAccessConfig } from "@/lib/channelAccess";
 
 const VALID_TYPES = ["text", "announcement", "media"];
 
@@ -13,9 +14,14 @@ export async function PATCH(request, { params }) {
     const community = await prisma.community.findUnique({ where: { id: params.id } });
     if (!community) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    const channel = await prisma.channel.findUnique({ where: { id: params.channelId } });
+    if (!channel || channel.communityId !== params.id) {
+      return NextResponse.json({ error: "Channel not found." }, { status: 404 });
+    }
+
     const roles = await prisma.role.findMany({ where: { communityId: params.id } });
-    if (!canManageChannels(community, roles, userId)) {
-      return NextResponse.json({ error: "You don't have permission to edit channels." }, { status: 403 });
+    if (!canManageChannel(channel, community, roles, userId)) {
+      return NextResponse.json({ error: "You don't have permission to edit this channel." }, { status: 403 });
     }
 
     const body = await request.json();
@@ -26,20 +32,40 @@ export async function PATCH(request, { params }) {
     }
     if (typeof body.archived === "boolean") data.archived = body.archived;
     if (VALID_TYPES.includes(body.type)) data.type = body.type;
-    if (body.visibility !== undefined) data.visibility = body.visibility === "restricted" ? "restricted" : "public";
-    if (body.allowedRoleIds !== undefined) data.allowedRoleIds = Array.isArray(body.allowedRoleIds) ? body.allowedRoleIds : [];
-    if (body.canSendMessages !== undefined) data.canSendMessages = !!body.canSendMessages;
-    if (body.canSendImages !== undefined) data.canSendImages = !!body.canSendImages;
-    if (body.canUseThreads !== undefined) data.canUseThreads = !!body.canUseThreads;
-    if (body.emojiMode !== undefined && ["all", "restricted_set", "none"].includes(body.emojiMode)) data.emojiMode = body.emojiMode;
-    if (body.allowedEmojis !== undefined) data.allowedEmojis = Array.isArray(body.allowedEmojis) ? body.allowedEmojis : [];
 
-    const channel = await prisma.channel.update({
+    if (body.viewAccess !== undefined) {
+      const v = sanitizeAccessConfig(body.viewAccess);
+      if (v) {
+        data.viewAccess = v;
+        data.visibility = v.type === "everyone" ? "public" : "restricted";
+        data.allowedRoleIds = v.type === "roles" ? v.roleIds : [];
+      }
+    }
+    if (body.sendAccess !== undefined) {
+      const s = sanitizeAccessConfig(body.sendAccess);
+      if (s) {
+        data.sendAccess = s;
+        data.canSendMessages = s.type !== "owner";
+      }
+    }
+    if (body.threadAccess !== undefined) {
+      const t = sanitizeAccessConfig(body.threadAccess);
+      if (t) {
+        data.threadAccess = t;
+        data.canUseThreads = t.type !== "owner";
+      }
+    }
+    if (body.manageAccess !== undefined) {
+      const m = sanitizeAccessConfig(body.manageAccess);
+      if (m) data.manageAccess = m;
+    }
+
+    const updated = await prisma.channel.update({
       where: { id: params.channelId },
       data,
     });
 
-    return NextResponse.json({ channel });
+    return NextResponse.json({ channel: updated });
   } catch (err) {
     console.error("PATCH /api/communities/[id]/channels/[channelId] error:", err);
     return NextResponse.json({ error: "Database error, please retry." }, { status: 500 });
@@ -54,9 +80,14 @@ export async function DELETE(request, { params }) {
     const community = await prisma.community.findUnique({ where: { id: params.id } });
     if (!community) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    const channel = await prisma.channel.findUnique({ where: { id: params.channelId } });
+    if (!channel || channel.communityId !== params.id) {
+      return NextResponse.json({ error: "Channel not found." }, { status: 404 });
+    }
+
     const roles = await prisma.role.findMany({ where: { communityId: params.id } });
-    if (!canManageChannels(community, roles, userId)) {
-      return NextResponse.json({ error: "You don't have permission to delete channels." }, { status: 403 });
+    if (!canManageChannel(channel, community, roles, userId)) {
+      return NextResponse.json({ error: "You don't have permission to delete this channel." }, { status: 403 });
     }
 
     await prisma.channel.delete({ where: { id: params.channelId } });
