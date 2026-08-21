@@ -6,6 +6,8 @@ function canManage(community, userId) {
   return community.ownerId === userId || community.adminIds.includes(userId);
 }
 
+const VALID_TYPES = ["text", "announcement", "media"];
+
 export async function PATCH(request, { params }) {
   const userId = getSessionUserId();
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -19,10 +21,19 @@ export async function PATCH(request, { params }) {
 
     const body = await request.json();
     const data = {};
+
     if (typeof body.name === "string" && body.name.trim()) {
       data.name = body.name.trim().toLowerCase().replace(/\s+/g, "-");
     }
     if (typeof body.archived === "boolean") data.archived = body.archived;
+    if (VALID_TYPES.includes(body.type)) data.type = body.type;
+    if (body.visibility !== undefined) data.visibility = body.visibility === "restricted" ? "restricted" : "public";
+    if (body.allowedRoleIds !== undefined) data.allowedRoleIds = Array.isArray(body.allowedRoleIds) ? body.allowedRoleIds : [];
+    if (body.canSendMessages !== undefined) data.canSendMessages = !!body.canSendMessages;
+    if (body.canSendImages !== undefined) data.canSendImages = !!body.canSendImages;
+    if (body.canUseThreads !== undefined) data.canUseThreads = !!body.canUseThreads;
+    if (body.emojiMode !== undefined && ["all", "restricted_set", "none"].includes(body.emojiMode)) data.emojiMode = body.emojiMode;
+    if (body.allowedEmojis !== undefined) data.allowedEmojis = Array.isArray(body.allowedEmojis) ? body.allowedEmojis : [];
 
     const channel = await prisma.channel.update({
       where: { id: params.channelId },
