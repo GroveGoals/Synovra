@@ -20,9 +20,18 @@ export async function GET(request) {
     const formatted = communities.map((c) => ({
       id: c.id,
       name: c.name,
+      slug: c.slug,
       description: c.description,
       iconDataUrl: c.iconDataUrl,
+      bannerDataUrl: c.bannerDataUrl,
+      category: c.category,
+      tags: c.tags,
+      accentColor: c.accentColor,
+      joinMode: c.joinMode,
+      discoverable: c.discoverable,
+      welcomeMessage: c.welcomeMessage,
       isOwner: c.ownerId === userId,
+      isAdmin: c.adminIds.includes(userId),
       isMember: c.memberIds.includes(userId),
       memberCount: c.memberIds.length,
     }));
@@ -44,6 +53,9 @@ export async function POST(request) {
     const body = await request.json();
     const name = (body.name || "").trim();
     const description = (body.description || "").trim();
+    const category = (body.category || "").trim();
+    const iconDataUrl = typeof body.iconDataUrl === "string" ? body.iconDataUrl : null;
+    const isPublic = body.visibility !== "private";
 
     if (!name) {
       return NextResponse.json({ error: "Community name is required." }, { status: 400 });
@@ -58,6 +70,10 @@ export async function POST(request) {
       data: {
         name,
         description: description || null,
+        category: category || null,
+        iconDataUrl: iconDataUrl || null,
+        joinMode: isPublic ? "anyone" : "invite_only",
+        discoverable: isPublic,
         ownerId: userId,
         memberIds: [userId],
       },
@@ -67,9 +83,18 @@ export async function POST(request) {
       community: {
         id: community.id,
         name: community.name,
+        slug: community.slug,
         description: community.description,
         iconDataUrl: community.iconDataUrl,
+        bannerDataUrl: community.bannerDataUrl,
+        category: community.category,
+        tags: community.tags,
+        accentColor: community.accentColor,
+        joinMode: community.joinMode,
+        discoverable: community.discoverable,
+        welcomeMessage: community.welcomeMessage,
         isOwner: true,
+        isAdmin: false,
         isMember: true,
         memberCount: community.memberIds.length,
       },
