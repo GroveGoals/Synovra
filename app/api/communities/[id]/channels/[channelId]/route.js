@@ -19,19 +19,10 @@ export async function PATCH(request, { params }) {
 
     const body = await request.json();
     const data = {};
-
-    if (body.name !== undefined) {
-      const name = (body.name || "").trim().toLowerCase().replace(/\s+/g, "-");
-      if (!name) return NextResponse.json({ error: "Channel name is required." }, { status: 400 });
-      data.name = name;
+    if (typeof body.name === "string" && body.name.trim()) {
+      data.name = body.name.trim().toLowerCase().replace(/\s+/g, "-");
     }
-    if (body.visibility !== undefined) data.visibility = body.visibility === "restricted" ? "restricted" : "public";
-    if (body.allowedRoleIds !== undefined) data.allowedRoleIds = Array.isArray(body.allowedRoleIds) ? body.allowedRoleIds : [];
-    if (body.canSendMessages !== undefined) data.canSendMessages = !!body.canSendMessages;
-    if (body.canSendImages !== undefined) data.canSendImages = !!body.canSendImages;
-    if (body.canUseThreads !== undefined) data.canUseThreads = !!body.canUseThreads;
-    if (body.emojiMode !== undefined && ["all", "restricted_set", "none"].includes(body.emojiMode)) data.emojiMode = body.emojiMode;
-    if (body.allowedEmojis !== undefined) data.allowedEmojis = Array.isArray(body.allowedEmojis) ? body.allowedEmojis : [];
+    if (typeof body.archived === "boolean") data.archived = body.archived;
 
     const channel = await prisma.channel.update({
       where: { id: params.channelId },
