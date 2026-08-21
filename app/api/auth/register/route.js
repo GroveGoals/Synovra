@@ -5,7 +5,7 @@ import { sendVerificationEmail } from "@/lib/email";
 import { generateCode, CODE_TTL_MS } from "@/lib/security";
 
 function isValidUsername(username) {
-  return /^[a-z][a-z0-9_]{2,29}$/.test(username);
+  return /^[a-z][a-z0-9._-]{2,29}$/.test(username);
 }
 
 function isValidDisplayName(displayName) {
@@ -17,7 +17,9 @@ function parseDateOfBirth(value) {
 
   const date = new Date(`${value}T00:00:00.000Z`);
 
-  if (Number.isNaN(date.getTime())) return null;
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
 
   return date;
 }
@@ -26,12 +28,16 @@ function calculateAge(dateOfBirth) {
   const today = new Date();
   const birth = new Date(dateOfBirth);
 
-  let age = today.getUTCFullYear() - birth.getUTCFullYear();
+  let age =
+    today.getUTCFullYear() -
+    birth.getUTCFullYear();
 
   const birthdayNotReached =
     today.getUTCMonth() < birth.getUTCMonth() ||
-    (today.getUTCMonth() === birth.getUTCMonth() &&
-      today.getUTCDate() < birth.getUTCDate());
+    (
+      today.getUTCMonth() === birth.getUTCMonth() &&
+      today.getUTCDate() < birth.getUTCDate()
+    );
 
   if (birthdayNotReached) {
     age--;
@@ -71,7 +77,7 @@ export async function POST(req) {
       return NextResponse.json(
         {
           error:
-            "Username must start with a lowercase letter and contain only lowercase letters, numbers, or underscores. It must be 3–30 characters.",
+            "Username must start with a lowercase letter and can contain lowercase letters, numbers, periods, underscores, or hyphens. It must be 3–30 characters.",
         },
         { status: 400 }
       );
@@ -81,7 +87,7 @@ export async function POST(req) {
       return NextResponse.json(
         {
           error:
-            "Display name must be 1–50 characters and may contain letters, numbers, spaces, periods, apostrophes, and hyphens.",
+            "Display name must be 1–50 characters and can contain letters, numbers, spaces, periods, apostrophes, and hyphens.",
         },
         { status: 400 }
       );
@@ -122,30 +128,39 @@ export async function POST(req) {
       );
     }
 
-    const [emailTaken, usernameTaken] = await Promise.all([
-      prisma.user.findUnique({
-        where: { email: cleanEmail },
-      }),
-      prisma.user.findUnique({
-        where: { username: cleanUsername },
-      }),
-    ]);
+    const [emailTaken, usernameTaken] =
+      await Promise.all([
+        prisma.user.findUnique({
+          where: { email: cleanEmail },
+        }),
+
+        prisma.user.findUnique({
+          where: { username: cleanUsername },
+        }),
+      ]);
 
     if (emailTaken) {
       return NextResponse.json(
-        { error: "An account with that email already exists." },
+        {
+          error:
+            "An account with that email already exists.",
+        },
         { status: 409 }
       );
     }
 
     if (usernameTaken) {
       return NextResponse.json(
-        { error: "That username is already taken." },
+        {
+          error: "That username is already taken.",
+        },
         { status: 409 }
       );
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash =
+      await bcrypt.hash(password, 12);
+
     const code = generateCode();
 
     const user = await prisma.user.create({
@@ -158,20 +173,29 @@ export async function POST(req) {
         passwordHash,
 
         verificationCode: code,
-        verificationExpires: new Date(Date.now() + CODE_TTL_MS),
+        verificationExpires:
+          new Date(Date.now() + CODE_TTL_MS),
         lastCodeSentAt: new Date(),
+
+        usernameChangedAt: new Date(),
+        displayNameChangedAt: new Date(),
       },
     });
 
     try {
-      await sendVerificationEmail(user.email, code);
+      await sendVerificationEmail(
+        user.email,
+        code
+      );
     } catch (err) {
       return NextResponse.json(
         {
           ok: true,
           email: user.email,
           emailError:
-            err instanceof Error ? err.message : "Email failed",
+            err instanceof Error
+              ? err.message
+              : "Email failed",
         },
         { status: 201 }
       );
@@ -184,11 +208,18 @@ export async function POST(req) {
       },
       { status: 201 }
     );
+
   } catch (error) {
-    console.error("Registration error:", error);
+    console.error(
+      "Registration error:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "Something went wrong while creating your account." },
+      {
+        error:
+          "Something went wrong while creating your account.",
+      },
       { status: 500 }
     );
   }
