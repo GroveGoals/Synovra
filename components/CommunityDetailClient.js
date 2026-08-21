@@ -189,6 +189,13 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [newSectionName, setNewSectionName] = useState("");
   const [creatingSection, setCreatingSection] = useState(false);
 
+  // NEW: channel permission fields (create form)
+  const [newChannelVisibility, setNewChannelVisibility] = useState("public");
+  const [newChannelCanMessage, setNewChannelCanMessage] = useState(true);
+  const [newChannelCanImages, setNewChannelCanImages] = useState(true);
+  const [newChannelCanThreads, setNewChannelCanThreads] = useState(true);
+  const [newChannelEmojiMode, setNewChannelEmojiMode] = useState("all");
+
   const [settingsName, setSettingsName] = useState("");
   const [settingsDescription, setSettingsDescription] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
@@ -441,6 +448,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     setChannels((prev) => prev.map((c) => (c.sectionId === section.id ? { ...c, sectionId: null } : c)));
   }
 
+  // UPDATED: sends the new permission fields
   async function handleCreateChannel(e) {
     e.preventDefault();
     const name = newChannelName.trim();
@@ -450,7 +458,15 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     const res = await fetch(`/api/communities/${communityId}/channels`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, sectionId: newChannelSection || null }),
+      body: JSON.stringify({
+        name,
+        sectionId: newChannelSection || null,
+        visibility: newChannelVisibility,
+        canSendMessages: newChannelCanMessage,
+        canSendImages: newChannelCanImages,
+        canUseThreads: newChannelCanThreads,
+        emojiMode: newChannelEmojiMode,
+      }),
     });
     const data = await res.json();
     setCreatingChannel(false);
@@ -633,7 +649,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
             height: 110,
             cursor: canManage ? "pointer" : "default",
             background: community.bannerDataUrl
-              ? `url(${community.bannerDataUrl}) center/cover`
+              ? `url("${community.bannerDataUrl}") center/cover`
               : "linear-gradient(135deg, var(--accent-soft), var(--surface-2))",
             position: "relative",
           }}
@@ -952,6 +968,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               </div>
             ))}
           </div>
+
           <form onSubmit={handleCreateChannel} className="space-y-2">
             {channelError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{channelError}</div>}
             <input
@@ -974,6 +991,44 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                 ))}
               </select>
             )}
+
+            <div className="text-xs font-semibold mt-2" style={{ color: "var(--text-muted)" }}>Who can see this channel</div>
+            <select
+              className="input pl-3"
+              style={{ padding: "8px 10px", fontSize: 13 }}
+              value={newChannelVisibility}
+              onChange={(e) => setNewChannelVisibility(e.target.value)}
+            >
+              <option value="public">Public — all members</option>
+              <option value="restricted">Restricted — specific roles only</option>
+            </select>
+
+            <div className="text-xs font-semibold mt-2" style={{ color: "var(--text-muted)" }}>Permissions in this channel</div>
+            <label className="flex items-center gap-2 text-sm py-1">
+              <input type="checkbox" checked={newChannelCanMessage} onChange={(e) => setNewChannelCanMessage(e.target.checked)} />
+              Members can send messages
+            </label>
+            <label className="flex items-center gap-2 text-sm py-1">
+              <input type="checkbox" checked={newChannelCanImages} onChange={(e) => setNewChannelCanImages(e.target.checked)} />
+              Members can send images
+            </label>
+            <label className="flex items-center gap-2 text-sm py-1">
+              <input type="checkbox" checked={newChannelCanThreads} onChange={(e) => setNewChannelCanThreads(e.target.checked)} />
+              Members can use threads
+            </label>
+
+            <div className="text-xs font-semibold mt-2" style={{ color: "var(--text-muted)" }}>Emoji</div>
+            <select
+              className="input pl-3"
+              style={{ padding: "8px 10px", fontSize: 13 }}
+              value={newChannelEmojiMode}
+              onChange={(e) => setNewChannelEmojiMode(e.target.value)}
+            >
+              <option value="all">Allow all emoji</option>
+              <option value="restricted_set">Restrict to a set (configure after creating)</option>
+              <option value="none">No emoji</option>
+            </select>
+
             <button type="submit" className="btn-primary" disabled={creatingChannel || !newChannelName.trim()}>
               {creatingChannel ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Channel</>}
             </button>
@@ -1179,6 +1234,13 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                     )}
                   </div>
                   <p className="text-sm mb-3" style={{ overflowWrap: "anywhere" }}>{post.content}</p>
+                  {post.imageUrl && (
+                    <img
+                      src={post.imageUrl}
+                      alt=""
+                      style={{ width: "100%", borderRadius: 12, marginBottom: 12, display: "block" }}
+                    />
+                  )}
                   <div className="flex items-center gap-4">
                     <button onClick={() => handleLike(post)} className="flex items-center gap-1.5 text-xs" style={{ color: post.likedByMe ? "var(--danger)" : "var(--text-muted)" }}>
                       <Heart size={15} fill={post.likedByMe ? "var(--danger)" : "none"} /> {post.likeCount}
@@ -1223,7 +1285,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
             </div>
           )}
 
-          {community.isMember && activeChannel && (
+          {community.isMember && activeChannel && activeChannel.canSendMessages !== false && (
             <form onSubmit={handlePost} className="flex items-center gap-2" style={{ position: "sticky", bottom: 12 }}>
               {error && (
                 <div className="alert alert-error" style={{ position: "absolute", bottom: "100%", left: 0, right: 0, marginBottom: 8 }}>
@@ -1254,6 +1316,11 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                 {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
               </button>
             </form>
+          )}
+          {community.isMember && activeChannel && activeChannel.canSendMessages === false && (
+            <p className="text-xs text-center py-2" style={{ color: "var(--text-muted)" }}>
+              Messages are turned off in #{activeChannel.name}.
+            </p>
           )}
         </>
       )}
