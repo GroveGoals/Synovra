@@ -1,0 +1,53 @@
+import { NextResponse } from "next/server";
+import { getSessionUserId } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+function canManage(community, userId) {
+  return community.ownerId === userId || community.adminIds.includes(userId);
+}
+
+export async function PATCH(request, { params }) {
+  const userId = getSessionUserId();
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  try {
+    const community = await prisma.community.findUnique({ where: { id: params.id } });
+    if (!community) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!canManage(community, userId)) {
+      return NextResponse.json({ error: "You don't have permission to edit this community." }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const data = {};
+
+    if (typeof body.name === "string" && body.name.trim()) data.name = body.name.trim();
+    if (typeof body.description === "string") data.description = body.description.trim();
+    if (typeof body.bannerDataUrl === "string") data.bannerDataUrl = body.bannerDataUrl;
+    if (typeof body.iconDataUrl === "string") data.iconDataUrl = body.iconDataUrl;
+    if (typeof body.category === "string") data.category = body.category || null;
+    if (typeof body.accentColor === "string") data.accentColor = body.accentColor || null;
+    if (Array.isArray(body.tags)) data.tags = body.tags;
+    if (Array.isArray(body.adminIds)) data.adminIds = body.adminIds;
+
+    if (typeof body.slug === "string" && body.slug.trim()) {
+      const slug = body.slug.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+      if (!slug) return NextResponse.json({ error: "Invalid community URL." }, { status: 400 });
+
+      const existing = await prisma.community.findUnique({ where: { slug } });
+      if (existing && existing.id !== params.id) {
+        return NextResponse.json({ error: "That community URL is already taken." }, { status: 409 });
+      }
+      data.slug = slug;
+    }
+
+    const updated = await prisma.community.update({
+      where: { id: params.id },
+      data,
+    });
+
+    return NextResponse.json({ community: updated });
+  } catch (err) {
+    console.error("PATCH /api/communities/[id]/settings error:", err);
+    return NextResponse.json({ error: "Database error, please retry." }, { status: 500 });
+  }
+}
