@@ -70,9 +70,10 @@ export async function POST(request, { params }) {
       const channel = await prisma.channel.findUnique({ where: { id: channelId } });
       if (!channel) return NextResponse.json({ error: "Channel not found." }, { status: 404 });
 
-      const hasAccess = await canAccessChannel(channel, community, userId);
-      if (!hasAccess) return NextResponse.json({ error: "You don't have access to this channel." }, { status: 403 });
-
+      const roles = await prisma.role.findMany({ where: { communityId: params.id } });
+      if (!canAccessChannel(channel, community, roles, userId)) {
+        return NextResponse.json({ error: "You don't have access to this channel." }, { status: 403 });
+      }
       if (content && !channel.canSendMessages) {
         return NextResponse.json({ error: "Messages are disabled in this channel." }, { status: 403 });
       }
