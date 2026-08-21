@@ -124,7 +124,8 @@ model Section {
   channels  Channel[]
 }
 
-model Channel {
+model Channel {viewRoleIds Json?
+  sendRoleIds Json?
   id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
