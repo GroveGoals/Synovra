@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { canManageChannels } from "@/lib/channelPermissions";
 import { sanitizeAccessConfig } from "@/lib/channelAccess";
 
-const VALID_TYPES = ["text", "announcement", "media"];
+const VALID_TYPES = ["text", "announcement", "media", "forum", "voice", "event"];
 
 export async function GET(request, { params }) {
   const userId = getSessionUserId();
@@ -59,7 +59,6 @@ export async function POST(request, { params }) {
         sendAccess,
         threadAccess,
         manageAccess,
-        // old fields kept in sync for anything still reading them
         visibility: viewAccess.type === "everyone" ? "public" : "restricted",
         allowedRoleIds: viewAccess.type === "roles" ? viewAccess.roleIds : [],
         canSendMessages: sendAccess.type !== "owner",
