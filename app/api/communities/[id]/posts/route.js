@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canAccessChannel } from "@/lib/channelPermissions";
+import { canViewChannel, canSendInChannel } from "@/lib/channelAccess";
 
 const authorSelect = { id: true, username: true, avatarDataUrl: true };
 
@@ -13,6 +13,17 @@ export async function GET(request, { params }) {
   const channelId = searchParams.get("channelId");
 
   try {
+    if (channelId) {
+      const community = await prisma.community.findUnique({ where: { id: params.id } });
+      const channel = await prisma.channel.findUnique({ where: { id: channelId } });
+      if (community && channel) {
+        const roles = await prisma.role.findMany({ where: { communityId: params.id } });
+        if (!canViewChannel(channel, community, roles, userId)) {
+          return NextResponse.json({ error: "You don't have access to this channel." }, { status: 403 });
+        }
+      }
+    }
+
     const where = { communityId: params.id };
     if (channelId) where.channelId = channelId;
 
@@ -71,11 +82,8 @@ export async function POST(request, { params }) {
       if (!channel) return NextResponse.json({ error: "Channel not found." }, { status: 404 });
 
       const roles = await prisma.role.findMany({ where: { communityId: params.id } });
-      if (!canAccessChannel(channel, community, roles, userId)) {
-        return NextResponse.json({ error: "You don't have access to this channel." }, { status: 403 });
-      }
-      if (content && !channel.canSendMessages) {
-        return NextResponse.json({ error: "Messages are disabled in this channel." }, { status: 403 });
+      if (!canSendInChannel(channel, community, roles, userId)) {
+        return NextResponse.json({ error: "You don't have permission to post in this channel." }, { status: 403 });
       }
       if (imageUrl && !channel.canSendImages) {
         return NextResponse.json({ error: "Images are disabled in this channel." }, { status: 403 });
