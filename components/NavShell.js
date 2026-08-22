@@ -25,8 +25,6 @@ const NAV_ITEMS = [
   { id: "premium", label: "Premium", href: "/premium", icon: Crown, available: false },
   { id: "settings", label: "Settings", href: "/settings", icon: Settings, available: true },
   { id: "profile", label: "My Profile", href: "/profile", icon: User, available: true },
-  { id: "help", label: "Help Center", href: "/help", icon: HelpCircle, available: true },
-  { id: "contact", label: "Contact Us", href: "/contact", icon: Phone, available: true },
 ];
 
 export default function NavShell({ children, user }) {
