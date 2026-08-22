@@ -27,11 +27,7 @@ export async function GET(request) {
       category: c.category,
       tags: c.tags,
       accentColor: c.accentColor,
-      joinMode: c.joinMode,
-      discoverable: c.discoverable,
-      welcomeMessage: c.welcomeMessage,
       isOwner: c.ownerId === userId,
-      isAdmin: c.adminIds.includes(userId),
       isMember: c.memberIds.includes(userId),
       memberCount: c.memberIds.length,
     }));
@@ -53,10 +49,9 @@ export async function POST(request) {
     const body = await request.json();
     const name = (body.name || "").trim();
     const description = (body.description || "").trim();
-    const category = (body.category || "").trim();
-    const iconDataUrl = typeof body.iconDataUrl === "string" ? body.iconDataUrl : null;
-    const bannerDataUrl = typeof body.bannerDataUrl === "string" ? body.bannerDataUrl : null;
-    const isPublic = body.visibility !== "private";
+    const category = typeof body.category === "string" ? body.category.trim() || null : null;
+    const iconDataUrl = typeof body.iconDataUrl === "string" ? body.iconDataUrl || null : null;
+    const bannerDataUrl = typeof body.bannerDataUrl === "string" ? body.bannerDataUrl || null : null;
 
     if (!name) {
       return NextResponse.json({ error: "Community name is required." }, { status: 400 });
@@ -67,15 +62,19 @@ export async function POST(request) {
       return NextResponse.json({ error: "A community with that name already exists." }, { status: 409 });
     }
 
+    // Map the wizard's simple public/private choice onto joinMode + discoverable
+    const joinMode = body.visibility === "private" ? "invite_only" : "anyone";
+    const discoverable = body.visibility !== "private";
+
     const community = await prisma.community.create({
       data: {
         name,
         description: description || null,
-        category: category || null,
-        iconDataUrl: iconDataUrl || null,
-        bannerDataUrl: bannerDataUrl || null,
-        joinMode: isPublic ? "anyone" : "invite_only",
-        discoverable: isPublic,
+        category,
+        iconDataUrl,
+        bannerDataUrl,
+        joinMode,
+        discoverable,
         ownerId: userId,
         memberIds: [userId],
       },
@@ -85,18 +84,11 @@ export async function POST(request) {
       community: {
         id: community.id,
         name: community.name,
-        slug: community.slug,
         description: community.description,
         iconDataUrl: community.iconDataUrl,
         bannerDataUrl: community.bannerDataUrl,
         category: community.category,
-        tags: community.tags,
-        accentColor: community.accentColor,
-        joinMode: community.joinMode,
-        discoverable: community.discoverable,
-        welcomeMessage: community.welcomeMessage,
         isOwner: true,
-        isAdmin: false,
         isMember: true,
         memberCount: community.memberIds.length,
       },
