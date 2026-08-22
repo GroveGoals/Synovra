@@ -180,8 +180,10 @@ model Invite {
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   code       String   @unique
+  createdBy  String
   maxUses    Int?
   useCount   Int      @default(0)
+  disabled   Boolean  @default(false)
   expiresAt  DateTime?
   createdAt  DateTime @default(now())
 }
