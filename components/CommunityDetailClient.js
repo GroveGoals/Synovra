@@ -320,6 +320,8 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [members, setMembers] = useState([]);
   const [events, setEvents] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [threads, setThreads] = useState([]);
+  const [threadsLoading, setThreadsLoading] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -462,6 +464,18 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     } catch (err) {}
   }, [communityId]);
 
+  const loadThreads = useCallback(async () => {
+    setThreadsLoading(true);
+    try {
+      const res = await fetch(`/api/communities/${communityId}/threads`);
+      const data = await res.json();
+      if (res.ok) setThreads(data.threads || []);
+    } catch (err) {
+    } finally {
+      setThreadsLoading(false);
+    }
+  }, [communityId]);
+
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (activeChannelId) loadPosts(activeChannelId); }, [activeChannelId, loadPosts]);
   useEffect(() => { if (view === "events") loadEvents(); }, [view, loadEvents]);
@@ -471,6 +485,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
       loadMembers();
     }
   }, [settingsPage, loadRoles, loadMembers]);
+  useEffect(() => { if (settingsPage === "threads") loadThreads(); }, [settingsPage, loadThreads]);
 
   async function toggleMembership() {
     if (community.isMember) {
@@ -546,7 +561,18 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
         prev.map((p) => (p.id === postId ? { ...p, comments: [...p.comments, data.comment] } : p))
       );
       setCommentDrafts((prev) => ({ ...prev, [postId]: "" }));
+    } else {
+      setError(data.error || "Could not send reply.");
     }
+  }
+
+  function handleOpenThreadFromSettings(thread) {
+    if (!thread.channelId) return;
+    setSettingsPage(null);
+    setView("feed");
+    setActiveChannelId(thread.channelId);
+    setChannelViewOpen(true);
+    setOpenThreads((prev) => ({ ...prev, [thread.postId]: true }));
   }
 
   async function handleInvite(e) {
@@ -1183,6 +1209,44 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               </div>
             )}
 
+            {settingsPage === "threads" && (
+              <div>
+                {threadsLoading ? (
+                  <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
+                    <Loader2 size={22} className="animate-spin" />
+                  </div>
+                ) : threads.length === 0 ? (
+                  <p className="text-xs text-center py-8" style={{ color: "var(--text-muted)" }}>
+                    No active threads yet. Threads appear here once members start replying to messages.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {threads.map((t) => (
+                      <button
+                        key={t.postId}
+                        onClick={() => handleOpenThreadFromSettings(t)}
+                        className="card p-3 w-full text-left"
+                        style={{ border: "1px solid var(--border)" }}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Hash size={12} style={{ color: "var(--text-muted)" }} />
+                          <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>{t.channelName || "unknown-channel"}</span>
+                        </div>
+                        {t.title && <div className="text-sm font-semibold mb-0.5">{t.title}</div>}
+                        <p className="text-xs mb-2" style={{ color: "var(--text-muted)", overflowWrap: "anywhere" }}>
+                          {t.preview?.slice(0, 100)}{t.preview?.length > 100 ? "…" : ""}
+                        </p>
+                        <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-muted)" }}>
+                          <span className="flex items-center gap-1"><Avatar user={t.author} size={16} /> {t.author.username}</span>
+                          <span className="flex items-center gap-1"><MessageCircle size={12} /> {t.replyCount} {t.replyCount === 1 ? "reply" : "replies"}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {settingsPage === "danger" && community.isOwner && (
               <div>
                 <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
@@ -1194,7 +1258,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               </div>
             )}
 
-            {settingsPage && !["overview", "members", "invites", "channels", "roles", "danger"].includes(settingsPage) && (
+            {settingsPage && !["overview", "members", "invites", "channels", "roles", "danger", "threads"].includes(settingsPage) && (
               <div className="card p-6 text-center space-y-2" style={{ background: "var(--surface-2)" }}>
                 <SlidersHorizontal size={24} className="mx-auto" style={{ color: "var(--text-muted)" }} />
                 <h3 className="text-sm font-semibold">{SETTINGS_TITLES[settingsPage]}</h3>
