@@ -272,7 +272,9 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [error, setError] = useState("");
   const [openThreads, setOpenThreads] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
-
+const [newPostTitle, setNewPostTitle] = useState("");
+const [showNewPostForm, setShowNewPostForm] = useState(false);
+const [openForumPostId, setOpenForumPostId] = useState(null);
   const [inviteUsername, setInviteUsername] = useState("");
   const [inviteStatus, setInviteStatus] = useState("");
   const [inviting, setInviting] = useState(false);
