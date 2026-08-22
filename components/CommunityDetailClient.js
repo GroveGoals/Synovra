@@ -272,9 +272,11 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [error, setError] = useState("");
   const [openThreads, setOpenThreads] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
-const [newPostTitle, setNewPostTitle] = useState("");
-const [showNewPostForm, setShowNewPostForm] = useState(false);
-const [openForumPostId, setOpenForumPostId] = useState(null);
+
+  const [newPostTitle, setNewPostTitle] = useState("");
+  const [showNewPostForm, setShowNewPostForm] = useState(false);
+  const [openForumPostId, setOpenForumPostId] = useState(null);
+
   const [inviteUsername, setInviteUsername] = useState("");
   const [inviteStatus, setInviteStatus] = useState("");
   const [inviting, setInviting] = useState(false);
@@ -426,13 +428,17 @@ const [openForumPostId, setOpenForumPostId] = useState(null);
   async function handlePost(e) {
     e.preventDefault();
     const content = newPost.trim();
+    const title = newPostTitle.trim();
+    const activeChannel = channels.find((c) => c.id === activeChannelId);
+    const isForum = activeChannel?.type === "forum";
     if (!content || !activeChannelId) return;
+    if (isForum && !title) return;
     setError("");
     setPosting(true);
     const res = await fetch(`/api/communities/${communityId}/posts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, channelId: activeChannelId }),
+      body: JSON.stringify({ content, channelId: activeChannelId, ...(isForum ? { title } : {}) }),
     });
     const data = await res.json();
     setPosting(false);
@@ -441,7 +447,10 @@ const [openForumPostId, setOpenForumPostId] = useState(null);
       return;
     }
     setNewPost("");
+    setNewPostTitle("");
+    setShowNewPostForm(false);
     setPosts((prev) => [...prev, data.post]);
+    if (isForum) setOpenForumPostId(data.post.id);
   }
 
   async function handleLike(post) {
@@ -1339,7 +1348,19 @@ const [openForumPostId, setOpenForumPostId] = useState(null);
             className="flex items-center gap-3 p-4"
             style={{ borderBottom: "1px solid var(--border)", flexShrink: 0 }}
           >
-            <button onClick={() => setChannelViewOpen(false)} aria-label="Back" style={{ background: "none", border: "none", color: "var(--text)" }}>
+            <button
+              onClick={() => {
+                if (openForumPostId) {
+                  setOpenForumPostId(null);
+                } else {
+                  setChannelViewOpen(false);
+                  setOpenForumPostId(null);
+                  setShowNewPostForm(false);
+                }
+              }}
+              aria-label="Back"
+              style={{ background: "none", border: "none", color: "var(--text)" }}
+            >
               <ChevronLeft size={22} />
             </button>
             <Hash size={16} style={{ color: "var(--text-muted)" }} />
@@ -1351,6 +1372,100 @@ const [openForumPostId, setOpenForumPostId] = useState(null);
               <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
                 <Loader2 size={22} className="animate-spin" />
               </div>
+            ) : activeChannel.type === "forum" ? (
+              openForumPostId ? (
+                (() => {
+                  const post = posts.find((p) => p.id === openForumPostId);
+                  if (!post) {
+                    return <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>Post not found.</p>;
+                  }
+                  return (
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-lg font-bold mb-2">{post.title}</h2>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Avatar user={post.author} size={28} />
+                          <span className="text-sm font-semibold">{post.author.username}</span>
+                          <span className="text-xs" style={{ color: "var(--text-muted)" }}>{relativeTime(post.createdAt)}</span>
+                        </div>
+                        <p className="text-sm mb-3" style={{ overflowWrap: "anywhere", lineHeight: 1.5 }}>{post.content}</p>
+                        <div className="flex items-center gap-3 pb-3" style={{ borderBottom: "1px solid var(--border)" }}>
+                          <button onClick={() => handleLike(post)} className="flex items-center gap-1 text-xs" style={{ color: post.likedByMe ? "var(--danger)" : "var(--text-muted)", background: "none", border: "none" }}>
+                            <Heart size={13} fill={post.likedByMe ? "var(--danger)" : "none"} /> {post.likeCount > 0 && post.likeCount}
+                          </button>
+                          {post.author.id === currentUserId && (
+                            <button onClick={() => { handleDeletePost(post.id); setOpenForumPostId(null); }} aria-label="Delete post" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <h3 className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+                          Replies ({post.comments?.length || 0})
+                        </h3>
+                        {post.comments?.map((c) => (
+                          <div key={c.id} className="flex items-start gap-2.5 card p-2.5">
+                            <Avatar user={c.author} size={24} />
+                            <div style={{ minWidth: 0, flex: 1 }}>
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-xs font-semibold">{c.author.username}</span>
+                              </div>
+                              <p className="text-xs" style={{ overflowWrap: "anywhere" }}>{c.content}</p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {community.isMember && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <input
+                              className="input pl-3"
+                              style={{ padding: "8px 12px", fontSize: 13, flex: 1 }}
+                              placeholder="Write a reply…"
+                              value={commentDrafts[post.id] || ""}
+                              onChange={(e) => setCommentDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))}
+                              onKeyDown={(e) => e.key === "Enter" && handleAddComment(post.id)}
+                            />
+                            <button onClick={() => handleAddComment(post.id)} className="btn-primary" style={{ width: "auto", padding: "8px 14px" }}>
+                              <Send size={14} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : (
+                <div className="space-y-2">
+                  {posts.length === 0 && (
+                    <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>No posts yet.</p>
+                  )}
+                  {posts.map((post) => (
+                    <div
+                      key={post.id}
+                      onClick={() => setOpenForumPostId(post.id)}
+                      className="card p-3 transition-opacity hover:opacity-90"
+                      style={{ cursor: "pointer" }}
+                    >
+                      <h3 className="text-sm font-semibold mb-1">{post.title || "Untitled Post"}</h3>
+                      <p className="text-xs mb-2 line-clamp-2" style={{ color: "var(--text-muted)", overflowWrap: "anywhere" }}>{post.content}</p>
+                      <div className="flex items-center justify-between text-xs" style={{ color: "var(--text-muted)" }}>
+                        <div className="flex items-center gap-1.5">
+                          <Avatar user={post.author} size={18} />
+                          <span>{post.author.username}</span>
+                          <span>·</span>
+                          <span>{relativeTime(post.createdAt)}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center gap-1"><Heart size={12} /> {post.likeCount}</span>
+                          <span className="flex items-center gap-1"><MessageCircle size={12} /> {post.comments?.length || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
             ) : (
               <>
                 {posts.length === 0 && (
@@ -1383,7 +1498,7 @@ const [openForumPostId, setOpenForumPostId] = useState(null);
                               className="flex items-center gap-1 text-xs"
                               style={{ color: "var(--text-muted)", background: "none", border: "none" }}
                             >
-                              <MessageCircle size={13} /> {post.comments.length > 0 ? `${post.comments.length} ${post.comments.length === 1 ? "reply" : "replies"}` : "Thread"}
+                              <MessageCircle size={13} /> {post.comments?.length > 0 ? `${post.comments.length} ${post.comments.length === 1 ? "reply" : "replies"}` : "Thread"}
                             </button>
                             {post.author.id === currentUserId && (
                               <button onClick={() => handleDeletePost(post.id)} aria-label="Delete message" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
@@ -1394,7 +1509,7 @@ const [openForumPostId, setOpenForumPostId] = useState(null);
 
                           {openThreads[post.id] && (
                             <div className="mt-2 pl-3 py-2" style={{ borderLeft: "2px solid var(--border)" }}>
-                              {post.comments.map((c) => (
+                              {post.comments?.map((c) => (
                                 <div key={c.id} className="flex items-start gap-2 mb-2">
                                   <Avatar user={c.author} size={22} />
                                   <div className="text-xs">
@@ -1427,7 +1542,52 @@ const [openForumPostId, setOpenForumPostId] = useState(null);
             )}
           </div>
 
-          {community.isMember && (
+          {community.isMember && activeChannel.type === "forum" && !openForumPostId && (
+            <div style={{ borderTop: "1px solid var(--border)", flexShrink: 0 }} className="p-3">
+              {!showNewPostForm ? (
+                <button
+                  onClick={() => setShowNewPostForm(true)}
+                  className="btn-primary w-full"
+                >
+                  <Plus size={15} /> New Post
+                </button>
+              ) : (
+                <form onSubmit={handlePost} className="space-y-2">
+                  {error && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{error}</div>}
+                  <input
+                    className="input pl-3"
+                    style={{ padding: "9px 10px", fontSize: 14 }}
+                    placeholder="Post title"
+                    value={newPostTitle}
+                    onChange={(e) => setNewPostTitle(e.target.value)}
+                    autoFocus
+                  />
+                  <textarea
+                    className="input pl-3"
+                    style={{ padding: "9px 10px", fontSize: 14, minHeight: 70, resize: "vertical" }}
+                    placeholder="What's on your mind?"
+                    value={newPost}
+                    onChange={(e) => setNewPost(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <button type="submit" className="btn-primary" disabled={posting || !newPost.trim() || !newPostTitle.trim()}>
+                      {posting ? <Loader2 size={14} className="animate-spin" /> : "Post"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowNewPostForm(false); setNewPost(""); setNewPostTitle(""); setError(""); }}
+                      className="btn-primary"
+                      style={{ background: "var(--surface-2)", color: "var(--text)" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {community.isMember && activeChannel.type !== "forum" && (
             <form onSubmit={handlePost} className="flex items-center gap-2 p-3" style={{ borderTop: "1px solid var(--border)", flexShrink: 0 }}>
               {error && (
                 <div className="alert alert-error" style={{ position: "absolute", bottom: "100%", left: 0, right: 0, marginBottom: 8 }}>
