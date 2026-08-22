@@ -10,31 +10,26 @@ export async function GET(request, { params }) {
 
   try {
     const posts = await prisma.post.findMany({
-      where: { communityId: params.id, comments: { some: {} } },
-      orderBy: { createdAt: "desc" },
+      where: {
+        communityId: params.id,
+        comments: { some: {} },
+      },
       include: {
         author: { select: authorSelect },
-        channel: { select: { id: true, name: true, type: true } },
-        comments: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          include: { author: { select: authorSelect } },
-        },
+        channel: { select: { id: true, name: true } },
         _count: { select: { comments: true } },
       },
+      orderBy: { createdAt: "desc" },
     });
 
     const threads = posts.map((p) => ({
       postId: p.id,
       channelId: p.channelId,
       channelName: p.channel?.name || null,
-      channelType: p.channel?.type || null,
-      title: p.title,
+      title: p.title || null,
       preview: p.content,
       author: p.author,
       replyCount: p._count.comments,
-      lastReply: p.comments[0] || null,
-      createdAt: p.createdAt,
     }));
 
     return NextResponse.json({ threads });
