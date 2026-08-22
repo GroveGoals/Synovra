@@ -10,6 +10,8 @@ export async function GET(request, { params }) {
     const community = await prisma.community.findUnique({ where: { id: params.id } });
     if (!community) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+    const ruleCount = await prisma.rule.count({ where: { communityId: params.id } });
+
     return NextResponse.json({
       community: {
         id: community.id,
@@ -29,6 +31,8 @@ export async function GET(request, { params }) {
         isAdmin: community.adminIds.includes(userId),
         isMember: community.memberIds.includes(userId),
         memberCount: community.memberIds.length,
+        hasRules: ruleCount > 0,
+        hasAcknowledgedRules: community.rulesAcknowledgedBy.includes(userId),
       },
     });
   } catch (err) {
