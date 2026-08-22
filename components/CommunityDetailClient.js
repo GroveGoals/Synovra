@@ -231,7 +231,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [newPost, setNewPost] = useState("");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState("");
-  const [openComments, setOpenComments] = useState({});
+  const [openThreads, setOpenThreads] = useState({});
   const [commentDrafts, setCommentDrafts] = useState({});
 
   const [inviteUsername, setInviteUsername] = useState("");
@@ -390,7 +390,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
       return;
     }
     setNewPost("");
-    setPosts((prev) => [data.post, ...prev]);
+    setPosts((prev) => [...prev, data.post]);
   }
 
   async function handleLike(post) {
@@ -405,7 +405,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   }
 
   async function handleDeletePost(id) {
-    if (!window.confirm("Delete this post?")) return;
+    if (!window.confirm("Delete this message?")) return;
     await fetch(`/api/posts/${id}`, { method: "DELETE" });
     setPosts((prev) => prev.filter((p) => p.id !== id));
   }
@@ -529,7 +529,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   }
 
   async function handleDeleteChannel(channel) {
-    if (!window.confirm(`Delete #${channel.name}? All posts in it will be deleted.`)) return;
+    if (!window.confirm(`Delete #${channel.name}? All messages in it will be deleted.`)) return;
     await fetch(`/api/communities/${communityId}/channels/${channel.id}`, { method: "DELETE" });
     const remaining = channels.filter((c) => c.id !== channel.id);
     setChannels(remaining);
@@ -1325,68 +1325,77 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               <Loader2 size={22} className="animate-spin" />
             </div>
           ) : (
-            <div className="space-y-3 mb-4">
+            <div className="mb-4">
               {posts.length === 0 && (
-                <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>No posts yet.</p>
+                <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>No messages yet.</p>
               )}
-              {posts.map((post) => (
-                <div key={post.id} className="card p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Avatar user={post.author} />
-                      <div>
-                        <div className="text-sm font-semibold">{post.author.username}</div>
-                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>{relativeTime(post.createdAt)}</div>
+              {posts.map((post, i) => {
+                const prev = posts[i - 1];
+                const grouped = prev && prev.author.id === post.author.id &&
+                  (new Date(post.createdAt) - new Date(prev.createdAt)) < 5 * 60 * 1000;
+                return (
+                  <div key={post.id} className="px-1" style={{ marginTop: grouped ? 2 : 14 }}>
+                    <div className="flex items-start gap-2.5">
+                      <div style={{ width: 36, flexShrink: 0 }}>
+                        {!grouped && <Avatar user={post.author} size={36} />}
                       </div>
-                    </div>
-                    {post.author.id === currentUserId && (
-                      <button onClick={() => handleDeletePost(post.id)} style={{ color: "var(--text-muted)" }} aria-label="Delete post">
-                        <Trash2 size={15} />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-sm mb-3" style={{ overflowWrap: "anywhere" }}>{post.content}</p>
-                  <div className="flex items-center gap-4">
-                    <button onClick={() => handleLike(post)} className="flex items-center gap-1.5 text-xs" style={{ color: post.likedByMe ? "var(--danger)" : "var(--text-muted)" }}>
-                      <Heart size={15} fill={post.likedByMe ? "var(--danger)" : "none"} /> {post.likeCount}
-                    </button>
-                    <button
-                      onClick={() => setOpenComments((prev) => ({ ...prev, [post.id]: !prev[post.id] }))}
-                      className="flex items-center gap-1.5 text-xs"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      <MessageCircle size={15} /> {post.comments.length}
-                    </button>
-                  </div>
-
-                  {openComments[post.id] && (
-                    <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
-                      {post.comments.map((c) => (
-                        <div key={c.id} className="flex items-start gap-2 mb-2">
-                          <Avatar user={c.author} size={26} />
-                          <div className="text-xs" style={{ background: "var(--surface-2)", borderRadius: 10, padding: "6px 10px", flex: 1 }}>
-                            <span className="font-semibold">{c.author.username}</span>{" "}
-                            <span style={{ color: "var(--text-muted)" }}>{c.content}</span>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        {!grouped && (
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-sm font-semibold">{post.author.username}</span>
+                            <span className="text-xs" style={{ color: "var(--text-muted)" }}>{relativeTime(post.createdAt)}</span>
                           </div>
+                        )}
+                        <p className="text-sm" style={{ overflowWrap: "anywhere", lineHeight: 1.45 }}>{post.content}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <button onClick={() => handleLike(post)} className="flex items-center gap-1 text-xs" style={{ color: post.likedByMe ? "var(--danger)" : "var(--text-muted)", background: "none", border: "none" }}>
+                            <Heart size={13} fill={post.likedByMe ? "var(--danger)" : "none"} /> {post.likeCount > 0 && post.likeCount}
+                          </button>
+                          <button
+                            onClick={() => setOpenThreads((prev2) => ({ ...prev2, [post.id]: !prev2[post.id] }))}
+                            className="flex items-center gap-1 text-xs"
+                            style={{ color: "var(--text-muted)", background: "none", border: "none" }}
+                          >
+                            <MessageCircle size={13} /> {post.comments.length > 0 ? `${post.comments.length} ${post.comments.length === 1 ? "reply" : "replies"}` : "Thread"}
+                          </button>
+                          {post.author.id === currentUserId && (
+                            <button onClick={() => handleDeletePost(post.id)} aria-label="Delete message" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
+                              <Trash2 size={13} />
+                            </button>
+                          )}
                         </div>
-                      ))}
-                      <div className="flex items-center gap-2 mt-2">
-                        <input
-                          className="input pl-3"
-                          style={{ padding: "7px 10px", fontSize: 13 }}
-                          placeholder="Add a comment…"
-                          value={commentDrafts[post.id] || ""}
-                          onChange={(e) => setCommentDrafts((prev) => ({ ...prev, [post.id]: e.target.value }))}
-                          onKeyDown={(e) => e.key === "Enter" && handleAddComment(post.id)}
-                        />
-                        <button onClick={() => handleAddComment(post.id)} style={{ color: "var(--accent)" }} aria-label="Send comment">
-                          <Send size={16} />
-                        </button>
+
+                        {openThreads[post.id] && (
+                          <div className="mt-2 pl-3 py-2" style={{ borderLeft: "2px solid var(--border)" }}>
+                            {post.comments.map((c) => (
+                              <div key={c.id} className="flex items-start gap-2 mb-2">
+                                <Avatar user={c.author} size={22} />
+                                <div className="text-xs">
+                                  <span className="font-semibold">{c.author.username}</span>{" "}
+                                  <span style={{ color: "var(--text-muted)" }}>{c.content}</span>
+                                </div>
+                              </div>
+                            ))}
+                            <div className="flex items-center gap-2 mt-1">
+                              <input
+                                className="input pl-3"
+                                style={{ padding: "6px 10px", fontSize: 12 }}
+                                placeholder="Reply in thread…"
+                                value={commentDrafts[post.id] || ""}
+                                onChange={(e) => setCommentDrafts((prev2) => ({ ...prev2, [post.id]: e.target.value }))}
+                                onKeyDown={(e) => e.key === "Enter" && handleAddComment(post.id)}
+                              />
+                              <button onClick={() => handleAddComment(post.id)} style={{ color: "var(--accent)", background: "none", border: "none" }} aria-label="Send reply">
+                                <Send size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
-              ))}
+                  </div>
+                );
+              })}
             </div>
           )}
 
