@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  Search, Users, Plus, Check, X, Loader2, Crown, ImageIcon, ArrowRight, ArrowLeft, UserPlus,
+  Search, Users, Plus, Check, X, Loader2, Crown, ImageIcon, ArrowRight, ArrowLeft, UserPlus, Sparkles,
 } from "lucide-react";
 
 const CATEGORY_OPTIONS = ["Social", "Gaming", "Education", "Technology", "Art", "Business", "Music", "Photography", "AI", "Writing", "General"];
@@ -26,20 +26,31 @@ function Avatar({ name, iconDataUrl, size = 44 }) {
   );
 }
 
-function centerCropToSquareDataUrl(file) {
+function centerCropDataUrl(file, targetW, targetH) {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => {
       const img = new window.Image();
       img.onload = () => {
-        const size = Math.min(img.width, img.height);
-        const sx = (img.width - size) / 2;
-        const sy = (img.height - size) / 2;
+        const targetRatio = targetW / targetH;
+        const imgRatio = img.width / img.height;
+        let sw, sh, sx, sy;
+        if (imgRatio > targetRatio) {
+          sh = img.height;
+          sw = sh * targetRatio;
+          sx = (img.width - sw) / 2;
+          sy = 0;
+        } else {
+          sw = img.width;
+          sh = sw / targetRatio;
+          sx = 0;
+          sy = (img.height - sh) / 2;
+        }
         const canvas = document.createElement("canvas");
-        canvas.width = 300;
-        canvas.height = 300;
+        canvas.width = targetW;
+        canvas.height = targetH;
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, sx, sy, size, size, 0, 0, 300, 300);
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
         resolve(canvas.toDataURL("image/jpeg", 0.88));
       };
       img.src = reader.result;
@@ -51,6 +62,7 @@ function centerCropToSquareDataUrl(file) {
 export default function CommunitiesClient() {
   const router = useRouter();
   const iconInputRef = useRef(null);
+  const bannerInputRef = useRef(null);
 
   const [communities, setCommunities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +75,7 @@ export default function CommunitiesClient() {
   const [newCategory, setNewCategory] = useState("Social");
   const [newVisibility, setNewVisibility] = useState("public");
   const [newIconDataUrl, setNewIconDataUrl] = useState("");
+  const [newBannerDataUrl, setNewBannerDataUrl] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [createdCommunity, setCreatedCommunity] = useState(null);
@@ -97,6 +110,7 @@ export default function CommunitiesClient() {
     setNewCategory("Social");
     setNewVisibility("public");
     setNewIconDataUrl("");
+    setNewBannerDataUrl("");
     setError("");
     setCreatedCommunity(null);
     setWizardOpen(true);
@@ -105,8 +119,16 @@ export default function CommunitiesClient() {
   async function handleIconFileChange(e) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const dataUrl = await centerCropToSquareDataUrl(file);
+    const dataUrl = await centerCropDataUrl(file, 300, 300);
     setNewIconDataUrl(dataUrl);
+    e.target.value = "";
+  }
+
+  async function handleBannerFileChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const dataUrl = await centerCropDataUrl(file, 900, 320);
+    setNewBannerDataUrl(dataUrl);
     e.target.value = "";
   }
 
@@ -132,6 +154,7 @@ export default function CommunitiesClient() {
         category: newCategory,
         visibility: newVisibility,
         iconDataUrl: newIconDataUrl,
+        bannerDataUrl: newBannerDataUrl,
       }),
     });
     const data = await res.json();
@@ -156,6 +179,9 @@ export default function CommunitiesClient() {
     load(query);
   }
 
+  const showEmptyState = !loading && communities.length === 0 && !query.trim();
+  const showNoResults = !loading && communities.length === 0 && query.trim();
+
   return (
     <div>
       <div className="relative flex items-center mb-4">
@@ -168,13 +194,15 @@ export default function CommunitiesClient() {
         />
       </div>
 
-      <button
-        onClick={openWizard}
-        className="flex items-center gap-2 p-3 rounded-xl mb-4 text-sm font-medium"
-        style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
-      >
-        <Plus size={16} /> Create Community
-      </button>
+      {!showEmptyState && (
+        <button
+          onClick={openWizard}
+          className="flex items-center gap-2 p-3 rounded-xl mb-4 text-sm font-medium"
+          style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+        >
+          <Plus size={16} /> Create Community
+        </button>
+      )}
 
       {loading && (
         <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
@@ -182,7 +210,32 @@ export default function CommunitiesClient() {
         </div>
       )}
 
-      {!loading && communities.length === 0 && (
+      {showEmptyState && (
+        <div className="text-center py-10 px-4">
+          <div
+            style={{
+              width: 88, height: 88, borderRadius: "50%", margin: "0 auto 16px",
+              background: "var(--accent-soft)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <Sparkles size={36} style={{ color: "var(--accent)" }} />
+          </div>
+          <h2 className="text-base font-semibold mb-1">You don&apos;t have a community yet.</h2>
+          <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>
+            Create your first community and build something amazing.
+          </p>
+          <button
+            onClick={openWizard}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold mx-auto"
+            style={{ background: "var(--accent)", color: "white", width: "fit-content" }}
+          >
+            <Plus size={16} /> Create Community
+          </button>
+        </div>
+      )}
+
+      {showNoResults && (
         <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>
           No communities found.
         </p>
@@ -250,6 +303,22 @@ export default function CommunitiesClient() {
           <div className="p-4" style={{ maxWidth: 460, margin: "0 auto", width: "100%" }}>
             {step === 1 && (
               <form onSubmit={goToReview} className="space-y-4">
+                <div>
+                  <label className="text-xs" style={{ color: "var(--text-muted)" }}>Community Banner (optional)</label>
+                  <div
+                    onClick={() => bannerInputRef.current?.click()}
+                    style={{
+                      height: 100, borderRadius: 12, marginTop: 6, cursor: "pointer",
+                      background: newBannerDataUrl ? `url(${newBannerDataUrl}) center/cover` : "var(--surface-2)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      border: "1px dashed var(--border)",
+                    }}
+                  >
+                    {!newBannerDataUrl && <ImageIcon size={20} style={{ color: "var(--text-muted)" }} />}
+                  </div>
+                  <input ref={bannerInputRef} type="file" accept="image/*" onChange={handleBannerFileChange} style={{ display: "none" }} />
+                </div>
+
                 <div className="flex flex-col items-center gap-2 mb-2">
                   <div onClick={() => iconInputRef.current?.click()} style={{ cursor: "pointer", position: "relative" }}>
                     <Avatar name={newName || "?"} iconDataUrl={newIconDataUrl} size={72} />
@@ -317,17 +386,25 @@ export default function CommunitiesClient() {
 
             {step === 2 && (
               <div>
-                <div className="card p-4 mb-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    <Avatar name={newName} iconDataUrl={newIconDataUrl} size={56} />
-                    <div>
-                      <div className="text-base font-semibold">{newName}</div>
-                      {newDescription && <div className="text-xs" style={{ color: "var(--text-muted)" }}>{newDescription}</div>}
+                <div className="card mb-4" style={{ padding: 0, overflow: "hidden" }}>
+                  <div
+                    style={{
+                      height: 130,
+                      background: newBannerDataUrl
+                        ? `url(${newBannerDataUrl}) center/cover`
+                        : "linear-gradient(135deg, var(--accent-soft), var(--surface-2))",
+                    }}
+                  />
+                  <div className="p-4" style={{ marginTop: -36 }}>
+                    <div style={{ border: "3px solid var(--surface)", borderRadius: "50%", width: 66, height: 66, overflow: "hidden", marginBottom: 8 }}>
+                      <Avatar name={newName} iconDataUrl={newIconDataUrl} size={60} />
                     </div>
-                  </div>
-                  <div className="text-xs space-y-1" style={{ color: "var(--text-muted)" }}>
-                    <div>Type: <span style={{ color: "var(--text)" }}>{newCategory}</span></div>
-                    <div>Visibility: <span style={{ color: "var(--text)" }}>{newVisibility === "public" ? "Public" : "Private"}</span></div>
+                    <div className="text-base font-semibold">{newName}</div>
+                    {newDescription && <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>{newDescription}</div>}
+                    <div className="text-xs space-y-1 mt-2" style={{ color: "var(--text-muted)" }}>
+                      <div>Type: <span style={{ color: "var(--text)" }}>{newCategory}</span></div>
+                      <div>Visibility: <span style={{ color: "var(--text)" }}>{newVisibility === "public" ? "Public" : "Private"}</span></div>
+                    </div>
                   </div>
                 </div>
                 {error && <div className="alert alert-error mb-3">{error}</div>}
