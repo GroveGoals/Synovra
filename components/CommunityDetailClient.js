@@ -322,6 +322,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [roles, setRoles] = useState([]);
   const [threads, setThreads] = useState([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
+  const [rules, setRules] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -381,6 +382,11 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [creatingRole, setCreatingRole] = useState(false);
   const [roleError, setRoleError] = useState("");
   const [expandedRoleId, setExpandedRoleId] = useState(null);
+
+  const [newRuleText, setNewRuleText] = useState("");
+  const [creatingRule, setCreatingRule] = useState(false);
+  const [ruleTextError, setRuleTextError] = useState("");
+  const [acknowledging, setAcknowledging] = useState(false);
 
   const canManage = community && (community.isOwner || community.isAdmin);
 
@@ -476,6 +482,14 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     }
   }, [communityId]);
 
+  const loadRules = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/communities/${communityId}/rules`);
+      const data = await res.json();
+      if (res.ok) setRules(data.rules || []);
+    } catch (err) {}
+  }, [communityId]);
+
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (activeChannelId) loadPosts(activeChannelId); }, [activeChannelId, loadPosts]);
   useEffect(() => { if (view === "events") loadEvents(); }, [view, loadEvents]);
@@ -486,6 +500,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     }
   }, [settingsPage, loadRoles, loadMembers]);
   useEffect(() => { if (settingsPage === "threads") loadThreads(); }, [settingsPage, loadThreads]);
+  useEffect(() => { if (settingsPage === "rules") loadRules(); }, [settingsPage, loadRules]);
 
   async function toggleMembership() {
     if (community.isMember) {
@@ -827,6 +842,41 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     }
   }
 
+  async function handleCreateRule(e) {
+    e.preventDefault();
+    const text = newRuleText.trim();
+    if (!text) return;
+    setRuleTextError("");
+    setCreatingRule(true);
+    const res = await fetch(`/api/communities/${communityId}/rules`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    const data = await res.json();
+    setCreatingRule(false);
+    if (!res.ok) {
+      setRuleTextError(data.error || "Could not add rule.");
+      return;
+    }
+    setNewRuleText("");
+    setRules((prev) => [...prev, data.rule]);
+  }
+
+  async function handleDeleteRule(rule) {
+    if (!window.confirm("Delete this rule?")) return;
+    await fetch(`/api/communities/${communityId}/rules/${rule.id}`, { method: "DELETE" });
+    setRules((prev) => prev.filter((r) => r.id !== rule.id));
+    load();
+  }
+
+  async function handleAcknowledgeRules() {
+    setAcknowledging(true);
+    await fetch(`/api/communities/${communityId}/rules/acknowledge`, { method: "POST" });
+    setAcknowledging(false);
+    load();
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
@@ -845,6 +895,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
 
   const activeChannel = channels.find((c) => c.id === activeChannelId);
   const uncategorized = channels.filter((c) => !c.sectionId || !sections.find((s) => s.id === c.sectionId));
+  const mustAcknowledgeRules = community.isMember && community.hasRules && !community.hasAcknowledgedRules && !community.isOwner;
 
   function handleSettingsBack() {
     if (settingsPage) {
@@ -1247,6 +1298,49 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               </div>
             )}
 
+            {settingsPage === "rules" && (
+              <div>
+                <div className="space-y-2 mb-4">
+                  {rules.map((rule, i) => (
+                    <div key={rule.id} className="card p-3 flex items-start gap-2">
+                      <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>{i + 1}.</span>
+                      <p className="text-sm flex-1" style={{ overflowWrap: "anywhere" }}>{rule.text}</p>
+                      {canManage && (
+                        <button onClick={() => handleDeleteRule(rule)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label="Delete rule">
+                          <XIcon size={14} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {rules.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>No rules yet.</p>}
+                </div>
+
+                {canManage && (
+                  <form onSubmit={handleCreateRule} className="space-y-2">
+                    {ruleTextError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{ruleTextError}</div>}
+                    <textarea
+                      className="input pl-3"
+                      style={{ padding: "9px 10px", fontSize: 13, minHeight: 60, resize: "vertical" }}
+                      placeholder="e.g. Be respectful to other members"
+                      value={newRuleText}
+                      onChange={(e) => setNewRuleText(e.target.value)}
+                    />
+                    <button type="submit" className="btn-primary" disabled={creatingRule || !newRuleText.trim()}>
+                      {creatingRule ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Add Rule</>}
+                    </button>
+                  </form>
+                )}
+
+                {community.isMember && !community.isOwner && rules.length > 0 && (
+                  <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+                    <button onClick={handleAcknowledgeRules} className="btn-primary" disabled={acknowledging || community.hasAcknowledgedRules}>
+                      {acknowledging ? <Loader2 size={14} className="animate-spin" /> : community.hasAcknowledgedRules ? "✓ Rules acknowledged" : "I've read the rules"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             {settingsPage === "danger" && community.isOwner && (
               <div>
                 <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
@@ -1258,7 +1352,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
               </div>
             )}
 
-            {settingsPage && !["overview", "members", "invites", "channels", "roles", "danger", "threads"].includes(settingsPage) && (
+            {settingsPage && !["overview", "members", "invites", "channels", "roles", "danger", "threads", "rules"].includes(settingsPage) && (
               <div className="card p-6 text-center space-y-2" style={{ background: "var(--surface-2)" }}>
                 <SlidersHorizontal size={24} className="mx-auto" style={{ color: "var(--text-muted)" }} />
                 <h3 className="text-sm font-semibold">{SETTINGS_TITLES[settingsPage]}</h3>
@@ -1364,6 +1458,22 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
           </div>
         </div>
       </div>
+
+      {mustAcknowledgeRules && (
+        <div className="card p-4 mb-4" style={{ border: "1px solid var(--accent)" }}>
+          <p className="text-sm font-semibold mb-1">Please review the community rules</p>
+          <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>
+            You need to acknowledge this community's rules before you can participate.
+          </p>
+          <button
+            onClick={() => { setView("settings"); setSettingsPage("rules"); }}
+            className="btn-primary"
+            style={{ maxWidth: 160 }}
+          >
+            View Rules
+          </button>
+        </div>
+      )}
 
       {view === "events" && (
         <div className="card p-4 mb-5">
