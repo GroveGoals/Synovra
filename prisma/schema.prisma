@@ -95,6 +95,8 @@ model Community {
   welcomeMessage    String? @db.Text
   defaultChannelId  String?
 
+  rulesAcknowledgedBy String[] @default([])
+
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
@@ -124,7 +126,7 @@ model Section {
   channels  Channel[]
 }
 
-model Channel{ 
+model Channel {
   id          String  @id @default(uuid())
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
