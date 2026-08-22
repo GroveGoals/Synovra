@@ -55,6 +55,7 @@ export async function POST(request) {
     const description = (body.description || "").trim();
     const category = (body.category || "").trim();
     const iconDataUrl = typeof body.iconDataUrl === "string" ? body.iconDataUrl : null;
+    const bannerDataUrl = typeof body.bannerDataUrl === "string" ? body.bannerDataUrl : null;
     const isPublic = body.visibility !== "private";
 
     if (!name) {
@@ -72,6 +73,7 @@ export async function POST(request) {
         description: description || null,
         category: category || null,
         iconDataUrl: iconDataUrl || null,
+        bannerDataUrl: bannerDataUrl || null,
         joinMode: isPublic ? "anyone" : "invite_only",
         discoverable: isPublic,
         ownerId: userId,
