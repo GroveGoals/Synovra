@@ -5,6 +5,7 @@ import {
   Crown, Users, Loader2, Heart, MessageCircle, Trash2, Send, AlertCircle,
   UserPlus, Link2, X as XIcon, Hash, Plus, Settings, ChevronLeft, ChevronDown,
   ChevronRight, Image as ImageIcon, Shield, ShieldOff, Calendar, ZoomIn, Tag,
+  SlidersHorizontal,
 } from "lucide-react";
 
 function relativeTime(dateStr) {
@@ -152,18 +153,60 @@ const ACCENT_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#
 const CATEGORY_OPTIONS = ["Gaming", "Education", "Technology", "Art", "Business", "Music", "Photography", "AI", "Writing", "General"];
 
 const SETTINGS_NAV = [
-  { group: "Community", items: [
-    { key: "overview", label: "Overview" },
-    { key: "members", label: "Members" },
-    { key: "roles", label: "Roles" },
-    { key: "invites", label: "Invites" },
-  ]},
-  { group: "Structure", items: [
-    { key: "channels", label: "Categories & Channels" },
-  ]},
-  { group: "Danger Zone", items: [
-    { key: "danger", label: "Danger Zone", danger: true },
-  ]},
+  {
+    group: "Community",
+    items: [
+      { key: "overview", label: "Overview" },
+      { key: "members", label: "Members" },
+      { key: "roles", label: "Roles" },
+      { key: "invites", label: "Invites" },
+    ],
+  },
+  {
+    group: "Structure",
+    items: [
+      { key: "channels", label: "Categories & Channels" },
+      { key: "channel-permissions", label: "Channel Permissions" },
+      { key: "threads", label: "Threads" },
+    ],
+  },
+  {
+    group: "Community Settings",
+    items: [
+      { key: "rules", label: "Rules" },
+      { key: "onboarding", label: "Onboarding" },
+      { key: "community-guide", label: "Community Guide" },
+      { key: "emojis-stickers", label: "Emojis & Stickers" },
+    ],
+  },
+  {
+    group: "Moderation",
+    items: [
+      { key: "safety-moderation", label: "Safety & Moderation" },
+      { key: "automod", label: "AutoMod" },
+      { key: "audit-log", label: "Audit Log" },
+    ],
+  },
+  {
+    group: "Integrations",
+    items: [
+      { key: "integrations", label: "Integrations" },
+      { key: "webhooks", label: "Webhooks" },
+    ],
+  },
+  {
+    group: "Advanced",
+    items: [
+      { key: "server-analytics", label: "Server Analytics" },
+      { key: "widget", label: "Widget" },
+    ],
+  },
+  {
+    group: "Danger Zone",
+    items: [
+      { key: "danger", label: "Danger Zone", danger: true },
+    ],
+  },
 ];
 
 const SETTINGS_TITLES = {
@@ -172,6 +215,25 @@ const SETTINGS_TITLES = {
   roles: "Roles",
   invites: "Invites",
   channels: "Categories & Channels",
+
+  "channel-permissions": "Channel Permissions",
+  threads: "Threads",
+
+  rules: "Rules",
+  onboarding: "Onboarding",
+  "community-guide": "Community Guide",
+  "emojis-stickers": "Emojis & Stickers",
+
+  "safety-moderation": "Safety & Moderation",
+  automod: "AutoMod",
+  "audit-log": "Audit Log",
+
+  integrations: "Integrations",
+  webhooks: "Webhooks",
+
+  "server-analytics": "Server Analytics",
+  widget: "Widget",
+
   danger: "Danger Zone",
 };
 
@@ -1129,6 +1191,16 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                 <button onClick={handleDeleteCommunity} className="btn-primary" style={{ background: "var(--danger-soft)", color: "var(--danger)" }}>
                   <Trash2 size={14} /> Delete Community
                 </button>
+              </div>
+            )}
+
+            {settingsPage && !["overview", "members", "invites", "channels", "roles", "danger"].includes(settingsPage) && (
+              <div className="card p-6 text-center space-y-2" style={{ background: "var(--surface-2)" }}>
+                <SlidersHorizontal size={24} className="mx-auto" style={{ color: "var(--text-muted)" }} />
+                <h3 className="text-sm font-semibold">{SETTINGS_TITLES[settingsPage]}</h3>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  Settings and controls for {SETTINGS_TITLES[settingsPage]?.toLowerCase()} will be available here.
+                </p>
               </div>
             )}
           </div>
