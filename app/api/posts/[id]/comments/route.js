@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/requireUser";
 import { notify } from "@/lib/notify";
+import { canCreateThreadsInChannel } from "@/lib/channelAccess";
 
 export async function POST(req, { params }) {
   const user = await requireUser();
@@ -9,6 +10,20 @@ export async function POST(req, { params }) {
 
   const post = await prisma.post.findUnique({ where: { id: params.id } });
   if (!post) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+  if (post.channelId) {
+    const channel = await prisma.channel.findUnique({ where: { id: post.channelId } });
+    if (channel) {
+      const community = await prisma.community.findUnique({ where: { id: post.communityId } });
+      if (community) {
+        const roles = await prisma.role.findMany({ where: { communityId: community.id } });
+        const allowed = canCreateThreadsInChannel(channel, community, roles, user.id);
+        if (!allowed) {
+          return NextResponse.json({ error: "You don't have permission to reply in threads here." }, { status: 403 });
+        }
+      }
+    }
+  }
 
   const { content } = await req.json();
   const cleanContent = (content || "").trim();
