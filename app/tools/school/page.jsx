@@ -1,3 +1,4 @@
+"use client";
 import SectionDashboard from "@/components/SectionDashboard";
 import {
   GraduationCap, BookOpen, CalendarCheck, Layers, HelpCircle,
