@@ -258,3 +258,57 @@ model Notification {
   read        Boolean @default(false)
   createdAt DateTime @default(now())
 }
+model FlashcardDeck {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title   String
+  subject String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cards   Flashcard[]
+}
+
+model Flashcard {
+  id     String        @id @default(uuid())
+  deckId String
+  deck   FlashcardDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  front String @db.Text
+  back  String @db.Text
+  createdAt DateTime @default(now())
+}
+
+model Note {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title   String
+  content String @db.Text
+  subject String?
+  pinned  Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Assignment {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  subject   String?
+  dueDate   DateTime?
+  notes     String? @db.Text
+  completed Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StudySession {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject String
+  minutes Int
+  note    String?
+  createdAt DateTime @default(now())
+}
