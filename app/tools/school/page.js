@@ -12,11 +12,15 @@ export default async function SchoolPage() {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || !user.verified) redirect("/login");
 
-  const items = TOOLS.filter((t) => t.category === "School").map((t) => ({
-    label: t.label,
-    sub: t.description,
-    href: `/ai-tools/${t.id}`,
-  }));
+  const items = [
+    { label: "Flashcards", sub: "Create decks and study them anytime.", href: "/tools/school/flashcards" },
+    { label: "Assignments", sub: "Track what's due and check it off.", href: "/tools/school/assignments" },
+    ...TOOLS.filter((t) => t.category === "School").map((t) => ({
+      label: t.label,
+      sub: t.description,
+      href: `/ai-tools/${t.id}`,
+    })),
+  ];
 
   return (
     <NavShell user={user}>
