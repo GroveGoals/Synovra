@@ -1,0 +1,99 @@
+// app/api/ai-tools/run/route.js
+//
+// Generic endpoint every AI tool page posts to. Add a new tool by adding
+// one entry to TOOL_CONFIG below — no new route needed.
+//
+// Requires ANTHROPIC_API_KEY set in your environment (.env.local / host env vars).
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth"; // <-- swap for your real session helper
+
+const TOOL_CONFIG = {
+  "recipe-generator": {
+    label: "Recipe Generator",
+    system:
+      "You are a helpful cooking assistant. Given ingredients, dietary notes, or a craving, " +
+      "return one clear recipe: a short title, ingredient list with quantities, and numbered steps. " +
+      "Keep it practical for a home cook. Plain text only, no markdown headers.",
+  },
+  "email-writer": {
+    label: "Email Writer",
+    system:
+      "You write clear, professional emails from a short description of what the user wants to say. " +
+      "Return only the email body (with a subject line on the first line prefixed 'Subject:'), no extra commentary.",
+  },
+  "meeting-notes": {
+    label: "Meeting Notes",
+    system:
+      "You turn rough meeting notes or a transcript into a clean summary: key decisions, action items " +
+      "(with owner if mentioned), and open questions. Plain text, use simple line breaks, no markdown headers.",
+  },
+  "homework-helper": {
+    label: "Homework Helper",
+    system:
+      "You are a patient tutor. Given a homework question, walk through the reasoning step by step and " +
+      "give the final answer clearly at the end. Don't just give the answer with no explanation.",
+  },
+};
+
+export async function POST(req) {
+  const user = await getCurrentUser(req);
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const toolId = body?.toolId;
+  const input = (body?.input || "").trim();
+
+  const config = TOOL_CONFIG[toolId];
+  if (!config) {
+    return NextResponse.json({ error: "Unknown tool." }, { status: 400 });
+  }
+  if (!input) {
+    return NextResponse.json({ error: "Please enter something first." }, { status: 400 });
+  }
+
+  let resultText;
+  try {
+    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 1024,
+        system: config.system,
+        messages: [{ role: "user", content: input }],
+      }),
+    });
+
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      console.error("Anthropic API error:", errText);
+      return NextResponse.json({ error: "The AI tool failed to respond. Try again." }, { status: 502 });
+    }
+
+    const aiData = await aiRes.json();
+    resultText = aiData.content?.find((c) => c.type === "text")?.text || "";
+  } catch (err) {
+    console.error("AI tool run error:", err);
+    return NextResponse.json({ error: "Network error contacting the AI service." }, { status: 502 });
+  }
+
+  const run = await prisma.toolRun.create({
+    data: {
+      userId: user.id,
+      toolId,
+      toolLabel: config.label,
+      inputSummary: input.slice(0, 200),
+      result: resultText,
+    },
+  });
+
+  return NextResponse.json({ run });
+}
