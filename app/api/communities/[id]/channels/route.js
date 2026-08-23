@@ -48,6 +48,10 @@ export async function POST(request, { params }) {
     const threadAccess = sanitizeAccessConfig(body.threadAccess) || { type: "everyone" };
     const manageAccess = sanitizeAccessConfig(body.manageAccess) || { type: "administrators" };
 
+    // Threads are OFF by default and must be explicitly enabled — independent
+    // of threadAccess, which only governs WHO can use threads once enabled.
+    const threadsEnabled = body.threadsEnabled === true;
+
     const channel = await prisma.channel.create({
       data: {
         communityId: params.id,
@@ -62,7 +66,7 @@ export async function POST(request, { params }) {
         visibility: viewAccess.type === "everyone" ? "public" : "restricted",
         allowedRoleIds: viewAccess.type === "roles" ? viewAccess.roleIds : [],
         canSendMessages: sendAccess.type !== "owner",
-        canUseThreads: threadAccess.type !== "owner",
+        canUseThreads: threadsEnabled,
       },
     });
 
