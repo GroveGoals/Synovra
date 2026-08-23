@@ -1,11 +1,17 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2, Users, AlertCircle, Check } from "lucide-react";
+import { useRouter, useParams } from "next/navigation";
+import { Loader2, Users, ChevronLeft } from "lucide-react";
 
-function Avatar({ name, iconDataUrl, size = 64 }) {
-  if (iconDataUrl) {
-    return <img src={iconDataUrl} alt="" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />;
+function CommunityIcon({ community, size = 64 }) {
+  if (community?.iconDataUrl) {
+    return (
+      <img
+        src={community.iconDataUrl}
+        alt=""
+        style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+      />
+    );
   }
   return (
     <div
@@ -16,19 +22,23 @@ function Avatar({ name, iconDataUrl, size = 64 }) {
         fontFamily: "var(--font-display)", fontWeight: 600, fontSize: size * 0.4,
       }}
     >
-      {name?.slice(0, 2).toUpperCase() || "?"}
+      {community?.name?.slice(0, 2).toUpperCase() || "?"}
     </div>
   );
 }
 
-export default function InviteLandingClient({ code }) {
+export default function InviteLandingClient({ code: codeProp } = {}) {
   const router = useRouter();
+  const params = useParams();
+  const code = codeProp || params?.code;
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [invalidReason, setInvalidReason] = useState(null);
+  const [status, setStatus] = useState(null);
   const [community, setCommunity] = useState(null);
+  const [alreadyMember, setAlreadyMember] = useState(false);
   const [joining, setJoining] = useState(false);
-  const [joined, setJoined] = useState(false);
+  const [joinError, setJoinError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,103 +47,117 @@ export default function InviteLandingClient({ code }) {
       const res = await fetch(`/api/invites/${code}`);
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "This invite link is invalid.");
+        setError(data.error || "This invite is invalid.");
         setLoading(false);
         return;
       }
+      setStatus(data.status);
       setCommunity(data.community);
-      setInvalidReason(data.valid ? null : data.reason);
+      setAlreadyMember(data.alreadyMember);
     } catch (err) {
-      setError("Network error loading this invite.");
+      setError("Network error loading invite.");
     } finally {
       setLoading(false);
     }
   }, [code]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { if (code) load(); }, [code, load]);
 
   async function handleJoin() {
+    setJoinError("");
     setJoining(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/invites/${code}/join`, { method: "POST" });
-      const data = await res.json();
-      setJoining(false);
-      if (!res.ok) {
-        setError(data.error || "Could not join this community.");
-        return;
-      }
-      setJoined(true);
-      setTimeout(() => router.push(`/communities/${data.communityId}`), 800);
-    } catch (err) {
-      setJoining(false);
-      setError("Network error joining this community.");
+    const res = await fetch(`/api/invites/${code}`, { method: "POST" });
+    const data = await res.json();
+    setJoining(false);
+    if (!res.ok) {
+      setJoinError(data.error || "Could not join this community.");
+      return;
     }
+    router.push(`/communities/${data.community.id}`);
   }
 
   if (loading) {
     return (
       <div className="flex justify-center py-16" style={{ color: "var(--text-muted)" }}>
-        <Loader2 size={24} className="animate-spin" />
+        <Loader2 size={22} className="animate-spin" />
       </div>
     );
   }
 
-  if (error && !community) {
+  if (error || !community) {
     return (
-      <div className="text-center py-16">
-        <AlertCircle size={28} style={{ color: "var(--danger, #e55)", margin: "0 auto 12px" }} />
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>{error}</p>
+      <div className="p-4" style={{ maxWidth: 420, margin: "0 auto" }}>
+        <button
+          onClick={() => router.push("/communities")}
+          className="flex items-center gap-1 text-sm mb-4"
+          style={{ background: "none", border: "none", color: "var(--text-muted)" }}
+        >
+          <ChevronLeft size={16} /> Back
+        </button>
+        <div className="card p-5 text-center">
+          <p className="text-sm font-semibold mb-1">This invite isn't valid</p>
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {error || "It may have expired, been revoked, or reached its use limit."}
+          </p>
+        </div>
       </div>
     );
   }
+
+  const statusLabel =
+    status === "expired" ? "This invite has expired." :
+    status === "exhausted" ? "This invite has reached its use limit." :
+    null;
 
   return (
-    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div
-        style={{
-          height: 110,
-          background: community.bannerDataUrl
-            ? `url("${community.bannerDataUrl}") center/cover`
-            : "linear-gradient(135deg, var(--accent-soft), var(--surface-2))",
-        }}
-      />
-      <div className="p-5" style={{ marginTop: -40 }}>
-        <div style={{ border: "4px solid var(--surface)", borderRadius: "50%", width: 76, height: 76, overflow: "hidden", marginBottom: 12 }}>
-          <Avatar name={community.name} iconDataUrl={community.iconDataUrl} size={68} />
-        </div>
-        <h1 className="text-lg font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>
-          {community.name}
-        </h1>
-        {community.description && (
-          <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>{community.description}</p>
-        )}
-        <div className="flex items-center gap-1.5 text-xs mb-4" style={{ color: "var(--text-muted)" }}>
-          <Users size={13} /> {community.memberCount} member{community.memberCount === 1 ? "" : "s"}
-        </div>
+    <div className="p-4" style={{ maxWidth: 420, margin: "0 auto" }}>
+      <button
+        onClick={() => router.push("/communities")}
+        className="flex items-center gap-1 text-sm mb-4"
+        style={{ background: "none", border: "none", color: "var(--text-muted)" }}
+      >
+        <ChevronLeft size={16} /> Back
+      </button>
 
-        {joined ? (
-          <div className="flex items-center gap-2 text-sm" style={{ color: "var(--accent)" }}>
-            <Check size={16} /> You&apos;re in! Taking you there…
+      <div className="mb-4" style={{ borderRadius: 16, overflow: "hidden", border: "1px solid var(--border)" }}>
+        <div
+          style={{
+            height: 90,
+            background: community.bannerDataUrl
+              ? `url("${community.bannerDataUrl}") center/cover`
+              : "linear-gradient(135deg, var(--accent-soft), var(--surface-2))",
+          }}
+        />
+        <div className="card p-4" style={{ borderRadius: 0, borderTop: "none", marginTop: -1, textAlign: "center" }}>
+          <div style={{ marginTop: -46, marginBottom: 10 }}>
+            <CommunityIcon community={community} size={64} />
           </div>
-        ) : invalidReason === "expired" ? (
-          <div className="alert alert-error">This invite link has expired.</div>
-        ) : invalidReason === "maxed_out" ? (
-          <div className="alert alert-error">This invite link has reached its use limit.</div>
-        ) : community.isMember ? (
-          <button onClick={() => router.push(`/communities/${community.id}`)} className="btn-primary">
-            Go to Community
-          </button>
-        ) : (
-          <>
-            {error && <div className="alert alert-error mb-2"><AlertCircle size={14} />{error}</div>}
-            <button onClick={handleJoin} className="btn-primary" disabled={joining}>
-              {joining ? <Loader2 size={15} className="animate-spin" /> : "Join Community"}
+          <h1 className="text-lg font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>
+            You've been invited to join
+          </h1>
+          <h2 className="text-xl font-bold mb-2">{community.name}</h2>
+          {community.description && (
+            <p className="text-sm mb-3" style={{ color: "var(--text-muted)" }}>{community.description}</p>
+          )}
+          <div className="flex items-center justify-center gap-1 text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+            <Users size={13} /> {community.memberCount} member{community.memberCount === 1 ? "" : "s"}
+          </div>
+
+          {statusLabel ? (
+            <p className="text-xs" style={{ color: "var(--danger, #e55)" }}>{statusLabel}</p>
+          ) : alreadyMember ? (
+            <button onClick={() => router.push(`/communities/${community.id}`)} className="btn-primary">
+              You're already a member — Open community
             </button>
-          </>
-        )}
+          ) : (
+            <>
+              {joinError && <div className="text-xs mb-2" style={{ color: "var(--danger, #e55)" }}>{joinError}</div>}
+              <button onClick={handleJoin} className="btn-primary" disabled={joining}>
+                {joining ? <Loader2 size={14} className="animate-spin" /> : "Join Community"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
