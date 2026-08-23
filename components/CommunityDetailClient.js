@@ -5,7 +5,7 @@ import {
   Crown, Users, Loader2, Heart, MessageCircle, Trash2, Send, AlertCircle,
   UserPlus, Link2, X as XIcon, Hash, Plus, Settings, ChevronLeft, ChevronDown,
   ChevronRight, Image as ImageIcon, Shield, ShieldOff, Calendar, ZoomIn, Tag,
-  SlidersHorizontal, Flag,
+  SlidersHorizontal, Flag, Pencil, Reply,
 } from "lucide-react";
 
 function relativeTime(dateStr) {
@@ -342,6 +342,10 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [showNewPostForm, setShowNewPostForm] = useState(false);
   const [openForumPostId, setOpenForumPostId] = useState(null);
 
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [editingPostId, setEditingPostId] = useState(null);
+  const [editContent, setEditContent] = useState("");
+
   const [inviteUsername, setInviteUsername] = useState("");
   const [inviteStatus, setInviteStatus] = useState("");
   const [inviting, setInviting] = useState(false);
@@ -554,7 +558,12 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     const res = await fetch(`/api/communities/${communityId}/posts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, channelId: activeChannelId, ...(isForum ? { title } : {}) }),
+      body: JSON.stringify({
+        content,
+        channelId: activeChannelId,
+        ...(isForum ? { title } : {}),
+        ...(replyingTo ? { replyToId: replyingTo.id } : {}),
+      }),
     });
     const data = await res.json();
     setPosting(false);
@@ -565,6 +574,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     setNewPost("");
     setNewPostTitle("");
     setShowNewPostForm(false);
+    setReplyingTo(null);
     setPosts((prev) => [...prev, data.post]);
     if (isForum) setOpenForumPostId(data.post.id);
   }
@@ -584,6 +594,26 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     if (!window.confirm("Delete this message?")) return;
     await fetch(`/api/posts/${id}`, { method: "DELETE" });
     setPosts((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  async function handleEditPost(postId) {
+    const content = editContent.trim();
+    if (!content) return;
+    const res = await fetch(`/api/posts/${postId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, content: data.post.content } : p)));
+      setEditingPostId(null);
+    }
+  }
+
+  function startEdit(post) {
+    setEditingPostId(post.id);
+    setEditContent(post.content);
   }
 
   async function handleAddComment(postId) {
@@ -1948,7 +1978,34 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                               <span className="text-xs" style={{ color: "var(--text-muted)" }}>{relativeTime(post.createdAt)}</span>
                             </div>
                           )}
-                          <p className="text-sm" style={{ overflowWrap: "anywhere", lineHeight: 1.45 }}>{post.content}</p>
+
+                          {post.replyTo && (
+                            <div className="text-xs mb-1 px-2 py-1" style={{ borderLeft: "2px solid var(--accent)", color: "var(--text-muted)", overflowWrap: "anywhere" }}>
+                              <span className="font-semibold">{post.replyTo.author?.username}</span> {post.replyTo.content?.slice(0, 80)}
+                            </div>
+                          )}
+
+                          {editingPostId === post.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                className="input pl-3"
+                                style={{ padding: "6px 10px", fontSize: 13, flex: 1 }}
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && handleEditPost(post.id)}
+                                autoFocus
+                              />
+                              <button onClick={() => handleEditPost(post.id)} style={{ color: "var(--accent)", background: "none", border: "none" }} aria-label="Save edit">
+                                <Send size={14} />
+                              </button>
+                              <button onClick={() => setEditingPostId(null)} style={{ color: "var(--text-muted)", background: "none", border: "none" }} aria-label="Cancel edit">
+                                <XIcon size={14} />
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-sm" style={{ overflowWrap: "anywhere", lineHeight: 1.45 }}>{post.content}</p>
+                          )}
+
                           <div className="flex items-center gap-3 mt-1">
                             <button onClick={() => handleLike(post)} className="flex items-center gap-1 text-xs" style={{ color: post.likedByMe ? "var(--danger)" : "var(--text-muted)", background: "none", border: "none" }}>
                               <Heart size={13} fill={post.likedByMe ? "var(--danger)" : "none"} /> {post.likeCount > 0 && post.likeCount}
@@ -1960,10 +2017,22 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                             >
                               <MessageCircle size={13} /> {post.comments?.length > 0 ? `${post.comments.length} ${post.comments.length === 1 ? "reply" : "replies"}` : "Thread"}
                             </button>
+                            <button
+                              onClick={() => setReplyingTo(post)}
+                              className="flex items-center gap-1 text-xs"
+                              style={{ color: "var(--text-muted)", background: "none", border: "none" }}
+                            >
+                              <Reply size={13} /> Reply
+                            </button>
                             {post.author.id === currentUserId ? (
-                              <button onClick={() => handleDeletePost(post.id)} aria-label="Delete message" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
-                                <Trash2 size={13} />
-                              </button>
+                              <>
+                                <button onClick={() => startEdit(post)} aria-label="Edit message" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
+                                  <Pencil size={13} />
+                                </button>
+                                <button onClick={() => handleDeletePost(post.id)} aria-label="Delete message" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
+                                  <Trash2 size={13} />
+                                </button>
+                              </>
                             ) : (
                               <button
                                 onClick={() => handleReportPost(post)}
@@ -2067,32 +2136,45 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
           )}
 
           {community.isMember && activeChannel.type !== "forum" && (
-            <form onSubmit={handlePost} className="flex items-center gap-2 p-3" style={{ borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+            <form onSubmit={handlePost} className="flex flex-col gap-1 p-3" style={{ borderTop: "1px solid var(--border)", flexShrink: 0, position: "relative" }}>
               {error && (
                 <div className="alert alert-error" style={{ position: "absolute", bottom: "100%", left: 0, right: 0, marginBottom: 8 }}>
                   <AlertCircle size={14} />{error}
                 </div>
               )}
-              <input
-                className="input pl-4"
-                style={{ flex: 1, borderRadius: 999, height: 46, background: "var(--surface-2)", border: "1px solid var(--border)" }}
-                placeholder={`Message #${activeChannel.name}`}
-                value={newPost}
-                onChange={(e) => setNewPost(e.target.value)}
-              />
-              <button
-                type="submit"
-                aria-label="Send"
-                disabled={posting || !newPost.trim()}
-                style={{
-                  width: 46, height: 46, borderRadius: "50%", flexShrink: 0,
-                  background: "var(--accent)", color: "white", border: "none",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  opacity: posting || !newPost.trim() ? 0.5 : 1,
-                }}
-              >
-                {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-              </button>
+              {replyingTo && (
+                <div className="flex items-center justify-between px-2 py-1" style={{ background: "var(--surface-2)", borderRadius: 8, fontSize: 12, color: "var(--text-muted)" }}>
+                  <span>Replying to <strong>{replyingTo.author.username}</strong></span>
+                  <button onClick={() => setReplyingTo(null)} style={{ background: "none", border: "none", color: "var(--text-muted)" }} aria-label="Cancel reply">
+                    <XIcon size={12} />
+                  </button>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <input
+                  className="input pl-4"
+                  style={{
+                    flex: 1, borderRadius: 999, height: 46,
+                    background: "var(--surface-2)", border: "1px solid var(--border)",
+                  }}
+                  placeholder={`Message #${activeChannel.name}`}
+                  value={newPost}
+                  onChange={(e) => setNewPost(e.target.value)}
+                />
+                <button
+                  type="submit"
+                  aria-label="Send"
+                  disabled={posting || !newPost.trim()}
+                  style={{
+                    width: 46, height: 46, borderRadius: "50%", flexShrink: 0,
+                    background: "var(--accent)", color: "white", border: "none",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    opacity: posting || !newPost.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {posting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                </button>
+              </div>
             </form>
           )}
         </div>
