@@ -1,16 +1,16 @@
 // app/api/tool-runs/[id]/favorite/route.js
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth"; // <-- swap for your real session helper
+import { getSessionUserId } from "@/lib/auth";
 
 export async function PATCH(req, { params }) {
-  const user = await getCurrentUser(req);
-  if (!user) {
+  const userId = getSessionUserId();
+  if (!userId) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
 
   const existing = await prisma.toolRun.findUnique({ where: { id: params.id } });
-  if (!existing || existing.userId !== user.id) {
+  if (!existing || existing.userId !== userId) {
     return NextResponse.json({ error: "Not found." }, { status: 404 });
   }
 
