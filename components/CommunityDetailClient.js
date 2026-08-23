@@ -5,7 +5,7 @@ import {
   Crown, Users, Loader2, Heart, MessageCircle, Trash2, Send, AlertCircle,
   UserPlus, Link2, X as XIcon, Hash, Plus, Settings, ChevronLeft, ChevronDown,
   ChevronRight, Image as ImageIcon, Shield, ShieldOff, Calendar, ZoomIn, Tag,
-  SlidersHorizontal,
+  SlidersHorizontal, Flag,
 } from "lucide-react";
 
 function relativeTime(dateStr) {
@@ -395,6 +395,9 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [creatingRule, setCreatingRule] = useState(false);
   const [ruleTextError, setRuleTextError] = useState("");
   const [acknowledging, setAcknowledging] = useState(false);
+
+  const [reportingId, setReportingId] = useState(null);
+  const [reportedIds, setReportedIds] = useState({});
 
   const canManage = community && (community.isOwner || community.isAdmin);
 
@@ -936,6 +939,51 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     load();
   }
 
+  async function handleReportPost(post) {
+    const reason = window.prompt("Why are you reporting this post?");
+    if (!reason || !reason.trim()) return;
+    setReportingId(post.id);
+    const res = await fetch(`/api/communities/${communityId}/reports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetType: "post", targetId: post.id, reason: reason.trim() }),
+    });
+    setReportingId(null);
+    if (res.ok) {
+      setReportedIds((prev) => ({ ...prev, [post.id]: true }));
+    }
+  }
+
+  async function handleReportComment(comment) {
+    const reason = window.prompt("Why are you reporting this reply?");
+    if (!reason || !reason.trim()) return;
+    setReportingId(comment.id);
+    const res = await fetch(`/api/communities/${communityId}/reports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetType: "comment", targetId: comment.id, reason: reason.trim() }),
+    });
+    setReportingId(null);
+    if (res.ok) {
+      setReportedIds((prev) => ({ ...prev, [comment.id]: true }));
+    }
+  }
+
+  async function handleReportMember(member) {
+    const reason = window.prompt(`Why are you reporting @${member.username}?`);
+    if (!reason || !reason.trim()) return;
+    setReportingId(member.id);
+    const res = await fetch(`/api/communities/${communityId}/reports`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetType: "member", targetId: member.id, reason: reason.trim() }),
+    });
+    setReportingId(null);
+    if (res.ok) {
+      setReportedIds((prev) => ({ ...prev, [member.id]: true }));
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
@@ -1101,24 +1149,36 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                           <span className="text-xs" style={{ color: "var(--accent)" }}>Admin</span>
                         )}
                       </div>
-                      {community.isOwner && !m.isOwner && (
-                        <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
+                        {!m.isOwner && m.id !== currentUserId && (
                           <button
-                            onClick={() => handleToggleAdmin(m)}
-                            aria-label={community.adminIds?.includes(m.id) ? `Remove admin from ${m.username}` : `Make ${m.username} admin`}
+                            onClick={() => handleReportMember(m)}
+                            disabled={reportingId === m.id || reportedIds[m.id]}
+                            aria-label={`Report ${m.username}`}
                             style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
                           >
-                            {community.adminIds?.includes(m.id) ? <ShieldOff size={15} /> : <Shield size={15} />}
+                            <Flag size={15} />
                           </button>
-                          <button
-                            onClick={() => handleRemoveMember(m.id)}
-                            aria-label={`Remove ${m.username}`}
-                            style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
-                          >
-                            <XIcon size={15} />
-                          </button>
-                        </div>
-                      )}
+                        )}
+                        {community.isOwner && !m.isOwner && (
+                          <>
+                            <button
+                              onClick={() => handleToggleAdmin(m)}
+                              aria-label={community.adminIds?.includes(m.id) ? `Remove admin from ${m.username}` : `Make ${m.username} admin`}
+                              style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
+                            >
+                              {community.adminIds?.includes(m.id) ? <ShieldOff size={15} /> : <Shield size={15} />}
+                            </button>
+                            <button
+                              onClick={() => handleRemoveMember(m.id)}
+                              aria-label={`Remove ${m.username}`}
+                              style={{ color: "var(--text-muted)", background: "none", border: "none", cursor: "pointer" }}
+                            >
+                              <XIcon size={15} />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))}
                   {members.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>No members loaded yet.</p>}
@@ -1773,9 +1833,19 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                           <button onClick={() => handleLike(post)} className="flex items-center gap-1 text-xs" style={{ color: post.likedByMe ? "var(--danger)" : "var(--text-muted)", background: "none", border: "none" }}>
                             <Heart size={13} fill={post.likedByMe ? "var(--danger)" : "none"} /> {post.likeCount > 0 && post.likeCount}
                           </button>
-                          {post.author.id === currentUserId && (
+                          {post.author.id === currentUserId ? (
                             <button onClick={() => { handleDeletePost(post.id); setOpenForumPostId(null); }} aria-label="Delete post" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
                               <Trash2 size={13} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleReportPost(post)}
+                              disabled={reportingId === post.id || reportedIds[post.id]}
+                              aria-label="Report post"
+                              className="flex items-center gap-1 text-xs"
+                              style={{ color: reportedIds[post.id] ? "var(--text-muted)" : "var(--text-muted)", background: "none", border: "none" }}
+                            >
+                              <Flag size={13} /> {reportedIds[post.id] ? "Reported" : "Report"}
                             </button>
                           )}
                         </div>
@@ -1789,8 +1859,18 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                           <div key={c.id} className="flex items-start gap-2.5 card p-2.5">
                             <Avatar user={c.author} size={24} />
                             <div style={{ minWidth: 0, flex: 1 }}>
-                              <div className="flex items-center gap-2 mb-0.5">
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
                                 <span className="text-xs font-semibold">{c.author.username}</span>
+                                {c.author.id !== currentUserId && (
+                                  <button
+                                    onClick={() => handleReportComment(c)}
+                                    disabled={reportingId === c.id || reportedIds[c.id]}
+                                    aria-label="Report reply"
+                                    style={{ color: "var(--text-muted)", background: "none", border: "none" }}
+                                  >
+                                    <Flag size={11} />
+                                  </button>
+                                )}
                               </div>
                               <p className="text-xs" style={{ overflowWrap: "anywhere" }}>{c.content}</p>
                             </div>
@@ -1880,9 +1960,18 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                             >
                               <MessageCircle size={13} /> {post.comments?.length > 0 ? `${post.comments.length} ${post.comments.length === 1 ? "reply" : "replies"}` : "Thread"}
                             </button>
-                            {post.author.id === currentUserId && (
+                            {post.author.id === currentUserId ? (
                               <button onClick={() => handleDeletePost(post.id)} aria-label="Delete message" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
                                 <Trash2 size={13} />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleReportPost(post)}
+                                disabled={reportingId === post.id || reportedIds[post.id]}
+                                aria-label="Report message"
+                                style={{ color: "var(--text-muted)", background: "none", border: "none" }}
+                              >
+                                <Flag size={13} />
                               </button>
                             )}
                           </div>
@@ -1892,10 +1981,20 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
                               {post.comments?.map((c) => (
                                 <div key={c.id} className="flex items-start gap-2 mb-2">
                                   <Avatar user={c.author} size={22} />
-                                  <div className="text-xs">
+                                  <div className="text-xs" style={{ flex: 1 }}>
                                     <span className="font-semibold">{c.author.username}</span>{" "}
                                     <span style={{ color: "var(--text-muted)" }}>{c.content}</span>
                                   </div>
+                                  {c.author.id !== currentUserId && (
+                                    <button
+                                      onClick={() => handleReportComment(c)}
+                                      disabled={reportingId === c.id || reportedIds[c.id]}
+                                      aria-label="Report reply"
+                                      style={{ color: "var(--text-muted)", background: "none", border: "none" }}
+                                    >
+                                      <Flag size={11} />
+                                    </button>
+                                  )}
                                 </div>
                               ))}
                               <div className="flex items-center gap-2 mt-1">
