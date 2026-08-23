@@ -39,6 +39,15 @@ export async function GET(request, { params }) {
       },
     });
 
+    const replyIds = [...new Set(posts.filter((p) => p.replyToId).map((p) => p.replyToId))];
+    const replyTargets = replyIds.length
+      ? await prisma.post.findMany({
+          where: { id: { in: replyIds } },
+          select: { id: true, content: true, author: { select: authorSelect } },
+        })
+      : [];
+    const replyMap = Object.fromEntries(replyTargets.map((r) => [r.id, r]));
+
     const formatted = posts.map((p) => ({
       id: p.id,
       title: p.title,
@@ -50,6 +59,8 @@ export async function GET(request, { params }) {
       likeCount: p.likedBy.length,
       likedByMe: p.likedBy.includes(userId),
       comments: p.comments,
+      replyToId: p.replyToId,
+      replyTo: p.replyToId ? replyMap[p.replyToId] || null : null,
     }));
 
     return NextResponse.json({ posts: formatted });
@@ -75,6 +86,7 @@ export async function POST(request, { params }) {
     const content = (body.content || "").trim();
     const imageUrl = body.imageUrl || null;
     const channelId = body.channelId || null;
+    const replyToId = body.replyToId || null;
     if (!content && !imageUrl) {
       return NextResponse.json({ error: "Post content is required." }, { status: 400 });
     }
@@ -100,6 +112,13 @@ export async function POST(request, { params }) {
       }
     }
 
+    if (replyToId) {
+      const target = await prisma.post.findUnique({ where: { id: replyToId } });
+      if (!target || target.channelId !== channelId) {
+        return NextResponse.json({ error: "Original message not found in this channel." }, { status: 400 });
+      }
+    }
+
     const post = await prisma.post.create({
       data: {
         communityId: params.id,
@@ -108,15 +127,26 @@ export async function POST(request, { params }) {
         title: channel?.type === "forum" ? title : null,
         content,
         imageUrl,
+        replyToId,
       },
       include: { author: { select: authorSelect } },
     });
+
+    let replyTo = null;
+    if (replyToId) {
+      const target = await prisma.post.findUnique({
+        where: { id: replyToId },
+        select: { id: true, content: true, author: { select: authorSelect } },
+      });
+      replyTo = target;
+    }
 
     return NextResponse.json({
       post: {
         id: post.id, title: post.title, content: post.content, imageUrl: post.imageUrl,
         createdAt: post.createdAt, channelId: post.channelId, author: post.author,
         likeCount: 0, likedByMe: false, comments: [],
+        replyToId: post.replyToId, replyTo,
       },
     });
   } catch (err) {
