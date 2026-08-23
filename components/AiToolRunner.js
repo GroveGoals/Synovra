@@ -3,23 +3,54 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2, AlertCircle, Copy, Check, Sparkles, Send } from "lucide-react";
 import MarkdownText from "@/components/MarkdownText";
+import { summarizeInput } from "@/lib/aiTools";
 
 export default function AiToolRunner({ tool }) {
   const [values, setValues] = useState({});
   const [result, setResult] = useState("");
-  const [history, setHistory] = useState(null);
-  const [followUps, setFollowUps] = useState([]); // [{ role: "user"|"assistant", text }]
+  const [apiHistory, setApiHistory] = useState(null); // real prompt/response sent to Gemini
+  const [savedMessages, setSavedMessages] = useState(null); // clean version stored in Conversation
+  const [conversationId, setConversationId] = useState(null);
+  const [followUps, setFollowUps] = useState([]);
   const [followUpInput, setFollowUpInput] = useState("");
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
+  async function persistNew(messages) {
+    try {
+      const res = await fetch("/api/ai/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      });
+      const data = await res.json();
+      if (res.ok) setConversationId(data.conversation.id);
+    } catch {
+      // Saving to Recent Chats failing shouldn't break the tool itself.
+    }
+  }
+
+  async function persistUpdate(id, messages) {
+    try {
+      await fetch(`/api/ai/conversations/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages }),
+      });
+    } catch {
+      // Same — non-fatal if this fails.
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     setResult("");
-    setHistory(null);
+    setApiHistory(null);
+    setSavedMessages(null);
+    setConversationId(null);
     setFollowUps([]);
     setLoading(true);
     try {
@@ -35,7 +66,14 @@ export default function AiToolRunner({ tool }) {
         return;
       }
       setResult(data.result);
-      setHistory(data.history);
+      setApiHistory(data.history);
+
+      const displayMessages = [
+        { role: "user", text: `${tool.label}: ${summarizeInput(tool, values)}` },
+        { role: "assistant", text: data.result },
+      ];
+      setSavedMessages(displayMessages);
+      persistNew(displayMessages);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -46,7 +84,7 @@ export default function AiToolRunner({ tool }) {
   async function handleFollowUp(e) {
     e.preventDefault();
     const text = followUpInput.trim();
-    if (!text || followUpLoading || !history) return;
+    if (!text || followUpLoading || !apiHistory) return;
 
     setError("");
     setFollowUpInput("");
@@ -57,7 +95,7 @@ export default function AiToolRunner({ tool }) {
       const res = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toolId: tool.id, followUp: text, history }),
+        body: JSON.stringify({ toolId: tool.id, followUp: text, history: apiHistory }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -65,7 +103,15 @@ export default function AiToolRunner({ tool }) {
         return;
       }
       setFollowUps((prev) => [...prev, { role: "assistant", text: data.result }]);
-      setHistory(data.history);
+      setApiHistory(data.history);
+
+      const updatedMessages = [
+        ...savedMessages,
+        { role: "user", text },
+        { role: "assistant", text: data.result },
+      ];
+      setSavedMessages(updatedMessages);
+      if (conversationId) persistUpdate(conversationId, updatedMessages);
     } catch {
       setError("Network error. Please try again.");
     } finally {
