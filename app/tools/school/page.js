@@ -22,7 +22,7 @@ export default async function SchoolPage() {
     <NavShell user={user}>
       <SectionDashboard
         title="School"
-        icon={GraduationCap}
+        icon={<GraduationCap size={20} />}
         description="Homework, studying, and everything class-related."
         items={items}
       />
