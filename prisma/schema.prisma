@@ -11,17 +11,14 @@ model User {
   id       String @id @default(uuid())
   username String @unique
   email    String @unique
-
   passwordHash String
   verified     Boolean @default(false)
   online       Boolean @default(false)
   lastSeenAt   DateTime?
-
   avatarDataUrl String?  @db.Text
   country       String?
   language      String   @default("English")
   isPublic      Boolean  @default(true)
-
   verificationCode    String?
   verificationExpires DateTime?
   resetCode    String?
@@ -29,10 +26,8 @@ model User {
   lastCodeSentAt DateTime?
   failedLoginAttempts Int       @default(0)
   lockedUntil         DateTime?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   conversations Conversation[]
   toolRuns      ToolRun[]
   collections   Collection[]
@@ -88,21 +83,15 @@ model Community {
   category    String?
   tags        String[] @default([])
   accentColor String?
-
-  joinMode      String  @default("anyone") // "anyone" | "request" | "invite_only" | "private"
+  joinMode      String  @default("anyone")
   discoverable  Boolean @default(true)
-
   welcomeMessage    String? @db.Text
   defaultChannelId  String?
-
   rulesAcknowledgedBy String[] @default([])
-
   ownerId String
   owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-
   memberIds String[] @default([])
   adminIds  String[] @default([])
-
   createdAt DateTime @default(now())
   posts     Post[]
   channels  Channel[]
@@ -133,10 +122,9 @@ model Channel {
   sectionId String?
   section   Section? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   name  String
-  type  String @default("text") // "text" | "announcement" | "media"
+  type  String @default("text")
   order Int    @default(0)
   archived Boolean @default(false)
-
   visibility      String   @default("public")
   allowedRoleIds  String[] @default([])
   canSendMessages Boolean  @default(true)
@@ -144,12 +132,10 @@ model Channel {
   canUseThreads   Boolean  @default(true)
   emojiMode       String   @default("all")
   allowedEmojis   String[] @default([])
-
   viewAccess    Json?
   sendAccess    Json?
   threadAccess  Json?
   manageAccess  Json?
-
   createdAt DateTime @default(now())
   posts     Post[]
 }
@@ -180,10 +166,8 @@ model Invite {
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   code       String   @unique
-  createdBy  String
   maxUses    Int?
   useCount   Int      @default(0)
-  disabled   Boolean  @default(false)
   expiresAt  DateTime?
   createdAt  DateTime @default(now())
 }
@@ -193,10 +177,10 @@ model Report {
   communityId String
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   reporterId  String
-  targetType  String   // "post" | "comment" | "member"
+  targetType  String
   targetId    String
   reason      String   @db.Text
-  status      String   @default("open") // "open" | "reviewing" | "resolved"
+  status      String   @default("open")
   createdAt   DateTime @default(now())
 }
 
@@ -207,7 +191,7 @@ model ModerationAction {
   moderatorId String
   moderator   User   @relation("ModActionModerator", fields: [moderatorId], references: [id], onDelete: Cascade)
   targetUserId String
-  action      String   // "warn" | "remove_message" | "restrict" | "remove" | "ban"
+  action      String
   reason      String?  @db.Text
   createdAt   DateTime @default(now())
 }
@@ -218,7 +202,7 @@ model JoinApplication {
   community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
   applicantId String
   answers     Json?
-  status      String   @default("pending") // "pending" | "approved" | "rejected"
+  status      String   @default("pending")
   createdAt   DateTime @default(now())
 }
 
@@ -249,6 +233,7 @@ model Post {
   likedBy        String[] @default([])
   isAnnouncement Boolean  @default(false)
   pinned         Boolean  @default(false)
+  replyToId      String?
   createdAt DateTime  @default(now())
   comments  Comment[]
 }
