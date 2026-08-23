@@ -347,6 +347,14 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   const [inviting, setInviting] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
+  const [invites, setInvites] = useState([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [newInviteMaxUses, setNewInviteMaxUses] = useState("");
+  const [newInviteExpiresAt, setNewInviteExpiresAt] = useState("");
+  const [creatingInvite, setCreatingInvite] = useState(false);
+  const [inviteCreateError, setInviteCreateError] = useState("");
+  const [copiedInviteId, setCopiedInviteId] = useState(null);
+
   const [newChannelName, setNewChannelName] = useState("");
   const [newChannelSection, setNewChannelSection] = useState("");
   const [creatingChannel, setCreatingChannel] = useState(false);
@@ -490,6 +498,18 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
     } catch (err) {}
   }, [communityId]);
 
+  const loadInvites = useCallback(async () => {
+    setInvitesLoading(true);
+    try {
+      const res = await fetch(`/api/communities/${communityId}/invites`);
+      const data = await res.json();
+      if (res.ok) setInvites(data.invites || []);
+    } catch (err) {
+    } finally {
+      setInvitesLoading(false);
+    }
+  }, [communityId]);
+
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (activeChannelId) loadPosts(activeChannelId); }, [activeChannelId, loadPosts]);
   useEffect(() => { if (view === "events") loadEvents(); }, [view, loadEvents]);
@@ -501,6 +521,7 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
   }, [settingsPage, loadRoles, loadMembers]);
   useEffect(() => { if (settingsPage === "threads") loadThreads(); }, [settingsPage, loadThreads]);
   useEffect(() => { if (settingsPage === "rules") loadRules(); }, [settingsPage, loadRules]);
+  useEffect(() => { if (settingsPage === "invites") loadInvites(); }, [settingsPage, loadInvites]);
 
   async function toggleMembership() {
     if (community.isMember) {
@@ -641,6 +662,44 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
       navigator.clipboard.writeText(url);
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
+    }
+  }
+
+  async function handleCreateInvite(e) {
+    e.preventDefault();
+    setInviteCreateError("");
+    setCreatingInvite(true);
+    const body = {};
+    if (newInviteMaxUses.trim()) body.maxUses = parseInt(newInviteMaxUses, 10);
+    if (newInviteExpiresAt) body.expiresAt = new Date(newInviteExpiresAt).toISOString();
+    const res = await fetch(`/api/communities/${communityId}/invites`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    setCreatingInvite(false);
+    if (!res.ok) {
+      setInviteCreateError(data.error || "Could not create invite.");
+      return;
+    }
+    setInvites((prev) => [data.invite, ...prev]);
+    setNewInviteMaxUses("");
+    setNewInviteExpiresAt("");
+  }
+
+  async function handleRevokeInvite(invite) {
+    if (!window.confirm("Revoke this invite link? It will stop working immediately.")) return;
+    await fetch(`/api/communities/${communityId}/invites/${invite.id}`, { method: "DELETE" });
+    setInvites((prev) => prev.filter((i) => i.id !== invite.id));
+  }
+
+  function handleCopyInviteLink(invite) {
+    const url = `${window.location.origin}/invite/${invite.code}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url);
+      setCopiedInviteId(invite.id);
+      setTimeout(() => setCopiedInviteId(null), 2000);
     }
   }
 
@@ -1069,14 +1128,89 @@ export default function CommunityDetailClient({ communityId, currentUserId }) {
 
             {settingsPage === "invites" && (
               <div>
-                <p className="text-sm mb-3">Share this link so people can join:</p>
-                <button
-                  onClick={handleCopyLink}
-                  className="btn-primary"
-                  style={{ background: "var(--surface-2)", color: "var(--text)", maxWidth: 200 }}
-                >
-                  <Link2 size={14} /> {linkCopied ? "Link copied!" : "Copy invite link"}
-                </button>
+                {invitesLoading ? (
+                  <div className="flex justify-center py-10" style={{ color: "var(--text-muted)" }}>
+                    <Loader2 size={22} className="animate-spin" />
+                  </div>
+                ) : (
+                  <div className="space-y-2 mb-4">
+                    {invites.map((inv) => {
+                      const expired = inv.expiresAt && new Date(inv.expiresAt) < new Date();
+                      const exhausted = inv.maxUses !== null && inv.useCount >= inv.maxUses;
+                      const status = expired ? "Expired" : exhausted ? "Exhausted" : "Active";
+                      return (
+                        <div key={inv.id} className="card p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-semibold" style={{ fontFamily: "monospace", letterSpacing: 1 }}>{inv.code}</span>
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full"
+                              style={{
+                                background: status === "Active" ? "var(--accent-soft)" : "var(--surface-2)",
+                                color: status === "Active" ? "var(--accent)" : "var(--text-muted)",
+                              }}
+                            >
+                              {status}
+                            </span>
+                          </div>
+                          <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+                            {inv.useCount} use{inv.useCount === 1 ? "" : "s"}{inv.maxUses !== null ? ` / ${inv.maxUses}` : ""}
+                            {inv.expiresAt && ` · expires ${new Date(inv.expiresAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleCopyInviteLink(inv)}
+                              className="btn-primary"
+                              style={{ background: "var(--surface-2)", color: "var(--text)", maxWidth: 160 }}
+                            >
+                              <Link2 size={13} /> {copiedInviteId === inv.id ? "Copied!" : "Copy link"}
+                            </button>
+                            {canManage && (
+                              <button
+                                onClick={() => handleRevokeInvite(inv)}
+                                style={{ background: "none", border: "none", color: "var(--text-muted)" }}
+                                aria-label="Revoke invite"
+                              >
+                                <XIcon size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {invites.length === 0 && <p className="text-xs" style={{ color: "var(--text-muted)" }}>No invite links yet.</p>}
+                  </div>
+                )}
+
+                {canManage && (
+                  <form onSubmit={handleCreateInvite} className="space-y-2">
+                    {inviteCreateError && <div className="text-xs" style={{ color: "var(--danger, #e55)" }}>{inviteCreateError}</div>}
+                    <div>
+                      <label className="text-xs" style={{ color: "var(--text-muted)" }}>Max uses (optional)</label>
+                      <input
+                        className="input pl-3 mt-1"
+                        style={{ padding: "8px 10px", fontSize: 13 }}
+                        type="number"
+                        min="1"
+                        placeholder="Unlimited"
+                        value={newInviteMaxUses}
+                        onChange={(e) => setNewInviteMaxUses(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs" style={{ color: "var(--text-muted)" }}>Expires (optional)</label>
+                      <input
+                        className="input pl-3 mt-1"
+                        style={{ padding: "8px 10px", fontSize: 13 }}
+                        type="datetime-local"
+                        value={newInviteExpiresAt}
+                        onChange={(e) => setNewInviteExpiresAt(e.target.value)}
+                      />
+                    </div>
+                    <button type="submit" className="btn-primary" disabled={creatingInvite}>
+                      {creatingInvite ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={14} /> Create Invite</>}
+                    </button>
+                  </form>
+                )}
               </div>
             )}
 
