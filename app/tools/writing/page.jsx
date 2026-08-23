@@ -1,3 +1,4 @@
+"use client";
 import SectionDashboard from "@/components/SectionDashboard";
 import {
   PenLine, Mail, FileText, Sparkles, SpellCheck, AlignLeft, Wand2,
