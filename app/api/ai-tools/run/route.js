@@ -3,11 +3,13 @@
 // Generic endpoint every AI tool page posts to. Add a new tool by adding
 // one entry to TOOL_CONFIG below — no new route needed.
 //
-// Requires ANTHROPIC_API_KEY set in your environment (.env.local / host env vars).
+// Requires GEMINI_API_KEY set in your environment (.env.local / host env vars).
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth"; // <-- swap for your real session helper
+
+const GEMINI_MODEL = "gemini-2.5-flash"; // swap to gemini-2.5-pro if you want higher quality over speed
 
 const TOOL_CONFIG = {
   "recipe-generator": {
@@ -57,29 +59,34 @@ export async function POST(req) {
 
   let resultText;
   try {
-    const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 1024,
-        system: config.system,
-        messages: [{ role: "user", content: input }],
-      }),
-    });
+    const aiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: {
+            parts: [{ text: config.system }],
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: input }],
+            },
+          ],
+        }),
+      }
+    );
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();
-      console.error("Anthropic API error:", errText);
+      console.error("Gemini API error:", errText);
       return NextResponse.json({ error: "The AI tool failed to respond. Try again." }, { status: 502 });
     }
 
     const aiData = await aiRes.json();
-    resultText = aiData.content?.find((c) => c.type === "text")?.text || "";
+    resultText =
+      aiData.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") || "";
   } catch (err) {
     console.error("AI tool run error:", err);
     return NextResponse.json({ error: "Network error contacting the AI service." }, { status: 502 });
