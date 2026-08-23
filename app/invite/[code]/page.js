@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import NavShell from "@/components/NavShell";
-import InviteLandingClient from "@/components/InviteLandingClient";
+import InviteLandingClient from "./InviteLandingClient";
 
 export default async function InvitePage({ params }) {
   const userId = getSessionUserId();
