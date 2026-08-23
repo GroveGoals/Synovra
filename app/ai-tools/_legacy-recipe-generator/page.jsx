@@ -1,4 +1,4 @@
-import AiToolRunner from "@/components/AiToolRunner";
+import AiToolRunner from "@/components/AiToolRunnerLegacy";
 
 export default function RecipeGeneratorPage() {
   return (
