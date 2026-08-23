@@ -37,6 +37,10 @@ model User {
   notifications    Notification[]
   hostedEvents     Event[]
   modActions       ModerationAction[] @relation("ModActionModerator")
+  flashcardDecks FlashcardDeck[]
+  notes          Note[]
+  assignments    Assignment[]
+  studySessions  StudySession[]
 }
 
 model Conversation {
@@ -258,6 +262,7 @@ model Notification {
   read        Boolean @default(false)
   createdAt DateTime @default(now())
 }
+
 model FlashcardDeck {
   id     String @id @default(uuid())
   userId String
