@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-export default function SectionDashboard({ title, icon: Icon, description, items = [] }) {
+export default function SectionDashboard({ title, icon, description, items = [] }) {
   const router = useRouter();
 
   return (
@@ -32,10 +32,6 @@ export default function SectionDashboard({ title, icon: Icon, description, items
           cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
         }
         .section-dash-card:hover { background: var(--surface-2); }
-        .section-dash-card-icon {
-          width: 32px; height: 32px; border-radius: 9px; background: var(--surface-2);
-          color: var(--accent); display: flex; align-items: center; justify-content: center;
-        }
         .section-dash-card-label { font-size: 13.5px; font-weight: 600; color: var(--text); }
         .section-dash-card-sub { font-size: 11.5px; color: var(--text-muted); }
       `}</style>
@@ -44,11 +40,7 @@ export default function SectionDashboard({ title, icon: Icon, description, items
         <button className="section-dash-back" onClick={() => router.back()} aria-label="Back">
           <ChevronLeft size={18} />
         </button>
-        {Icon && (
-          <div className="section-dash-icon">
-            <Icon size={20} />
-          </div>
-        )}
+        {icon && <div className="section-dash-icon">{icon}</div>}
         <div>
           <div className="section-dash-title">{title}</div>
           {description && <div className="section-dash-desc">{description}</div>}
@@ -56,36 +48,15 @@ export default function SectionDashboard({ title, icon: Icon, description, items
       </div>
 
       <div className="section-dash-grid">
-        {items.map((item) => {
-          const ItemIcon = item.icon;
-          const content = (
-            <>
-              {ItemIcon && (
-                <div className="section-dash-card-icon">
-                  <ItemIcon size={16} />
-                </div>
-              )}
-              <div>
-                <div className="section-dash-card-label">{item.label}</div>
-                {item.sub && <div className="section-dash-card-sub">{item.sub}</div>}
-              </div>
-              <ChevronRight size={14} style={{ color: "var(--text-muted)", alignSelf: "flex-end", marginTop: -20 }} />
-            </>
-          );
-
-          if (item.href) {
-            return (
-              <Link key={item.label} href={item.href} className="section-dash-card">
-                {content}
-              </Link>
-            );
-          }
-          return (
-            <button key={item.label} className="section-dash-card" onClick={item.onClick}>
-              {content}
-            </button>
-          );
-        })}
+        {items.map((item) => (
+          <Link key={item.label} href={item.href} className="section-dash-card">
+            <div>
+              <div className="section-dash-card-label">{item.label}</div>
+              {item.sub && <div className="section-dash-card-sub">{item.sub}</div>}
+            </div>
+            <ChevronRight size={14} style={{ color: "var(--text-muted)", alignSelf: "flex-end" }} />
+          </Link>
+        ))}
       </div>
     </div>
   );
