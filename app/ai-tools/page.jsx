@@ -1,3 +1,4 @@
+"use client";
 import SectionDashboard from "@/components/SectionDashboard";
 import {
   Bot, LayoutGrid, Sparkles, Languages, FileSearch, Palette, ChefHat,
