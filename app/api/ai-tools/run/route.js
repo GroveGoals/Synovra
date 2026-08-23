@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth"; // <-- swap for your real session helper
+import { getSessionUserId } from "@/lib/auth";
 
 const GEMINI_MODEL = "gemini-2.5-flash"; // swap to gemini-2.5-pro if you want higher quality over speed
 
@@ -40,8 +40,8 @@ const TOOL_CONFIG = {
 };
 
 export async function POST(req) {
-  const user = await getCurrentUser(req);
-  if (!user) {
+  const userId = getSessionUserId();
+  if (!userId) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
 
@@ -94,7 +94,7 @@ export async function POST(req) {
 
   const run = await prisma.toolRun.create({
     data: {
-      userId: user.id,
+      userId,
       toolId,
       toolLabel: config.label,
       inputSummary: input.slice(0, 200),
