@@ -1,3 +1,4 @@
+"use client";
 import SectionDashboard from "@/components/SectionDashboard";
 import { Wrench, Sparkles, Calculator, RefreshCw, CalendarCheck } from "lucide-react";
 
