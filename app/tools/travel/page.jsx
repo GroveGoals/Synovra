@@ -1,3 +1,4 @@
+"use client";
 import SectionDashboard from "@/components/SectionDashboard";
 import { Plane, Map, CalendarDays, Compass, Luggage } from "lucide-react";
 
