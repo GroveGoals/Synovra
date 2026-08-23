@@ -12,11 +12,11 @@ import {
 const NAV_ITEMS = [
   { id: "home", label: "Home", href: "/dashboard", icon: Home, available: true },
   { id: "ai-tools", label: "AI Tools", href: "/ai-tools", icon: Bot, available: true },
-  { id: "school", label: "School", href: "/tools/school", icon: GraduationCap, available: false },
-  { id: "business", label: "Business", href: "/tools/business", icon: Briefcase, available: false },
-  { id: "writing", label: "Writing", href: "/tools/writing", icon: PenLine, available: false },
-  { id: "travel", label: "Travel", href: "/tools/travel", icon: Plane, available: false },
-  { id: "home-tools", label: "Home Tools", href: "/tools/home", icon: Wrench, available: false },
+  { id: "school", label: "School", href: "/tools/school", icon: GraduationCap, available: true },
+  { id: "business", label: "Business", href: "/tools/business", icon: Briefcase, available: true },
+  { id: "writing", label: "Writing", href: "/tools/writing", icon: PenLine, available: true },
+  { id: "travel", label: "Travel", href: "/tools/travel", icon: Plane, available: true },
+  { id: "home-tools", label: "Home Tools", href: "/tools/home", icon: Wrench, available: true },
   { id: "communities", label: "Communities", href: "/communities", icon: Users, available: true },
   { id: "favorites", label: "Favorites", href: "/favorites", icon: Heart, available: true },
   { id: "history", label: "History", href: "/history", icon: History, available: true },
@@ -57,6 +57,12 @@ export default function NavShell({ children, user }) {
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, []);
+
+  function isItemActive(item) {
+    if (pathname === item.href) return true;
+    if (item.href !== "/" && pathname.startsWith(item.href + "/")) return true;
+    return false;
+  }
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -190,7 +196,7 @@ export default function NavShell({ children, user }) {
 
         <div className="synovra-nav-scroll">
           {NAV_ITEMS.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = isItemActive(item);
             if (!item.available) {
               return (
                 <div key={item.id} className="synovra-nav-item locked" title="Coming in a later phase">
