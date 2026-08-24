@@ -1,25 +1,39 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Loader2, ChevronLeft, ChevronRight, Trash2, AlertCircle, RotateCw } from "lucide-react";
+import { ArrowLeft, Loader2, Shuffle, Check, RotateCcw, AlertCircle } from "lucide-react";
+
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export default function FlashcardDeckClient({ deckId }) {
   const [deck, setDeck] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [cards, setCards] = useState([]);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
-  const [front, setFront] = useState("");
-  const [back, setBack] = useState("");
-  const [adding, setAdding] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showAddForm, setShowAddForm] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
-      const res = await fetch(`/api/flashcards/decks/${deckId}`);
+      const res = await fetch(`/api/flashcards/${deckId}`);
       const data = await res.json();
-      if (res.ok) setDeck(data.deck);
+      if (!res.ok) {
+        setError(data.error || "Could not load deck.");
+        return;
+      }
+      setDeck(data.deck);
+      setCards(data.deck.cards);
+    } catch {
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -27,43 +41,38 @@ export default function FlashcardDeckClient({ deckId }) {
 
   useEffect(() => { load(); }, [load]);
 
-  async function handleAddCard(e) {
-    e.preventDefault();
-    if (!front.trim() || !back.trim()) return;
-    setAdding(true);
-    setError("");
-    const res = await fetch(`/api/flashcards/decks/${deckId}/cards`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ front, back }),
-    });
-    const data = await res.json();
-    setAdding(false);
-    if (!res.ok) {
-      setError(data.error || "Could not add card.");
-      return;
-    }
-    setDeck((prev) => ({ ...prev, cards: [...prev.cards, data.card] }));
-    setFront("");
-    setBack("");
-    setShowAddForm(false);
-  }
+  const known = useMemo(() => cards.filter((c) => c.status === "known").length, [cards]);
+  const current = cards[index];
 
-  async function handleDeleteCard(id) {
-    if (!window.confirm("Delete this card?")) return;
-    await fetch(`/api/flashcards/cards/${id}`, { method: "DELETE" });
-    setDeck((prev) => ({ ...prev, cards: prev.cards.filter((c) => c.id !== id) }));
+  function handleShuffle() {
+    setCards((prev) => shuffleArray(prev));
     setIndex(0);
     setFlipped(false);
   }
 
-  function next() {
+  function goNext() {
     setFlipped(false);
-    setIndex((i) => (i + 1) % deck.cards.length);
+    setIndex((i) => Math.min(i + 1, cards.length - 1));
   }
-  function prev() {
+
+  function goPrev() {
     setFlipped(false);
-    setIndex((i) => (i - 1 + deck.cards.length) % deck.cards.length);
+    setIndex((i) => Math.max(i - 1, 0));
+  }
+
+  async function markStatus(status) {
+    if (!current) return;
+    setCards((prev) => prev.map((c) => (c.id === current.id ? { ...c, status } : c)));
+    try {
+      await fetch(`/api/flashcards/${deckId}/cards/${current.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+    } catch {
+      // status update is best-effort; local state already reflects it
+    }
+    if (index < cards.length - 1) goNext();
   }
 
   if (loading) {
@@ -74,100 +83,95 @@ export default function FlashcardDeckClient({ deckId }) {
     );
   }
 
-  if (!deck) {
-    return <p className="text-sm text-center py-16" style={{ color: "var(--text-muted)" }}>Deck not found.</p>;
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col items-center px-4 pb-16">
+        <div className="w-full max-w-[480px] mt-10">
+          <Link href="/tools/school" className="btn-text inline-flex items-center gap-1.5 mb-4">
+            <ArrowLeft size={14} /> School
+          </Link>
+          <div className="alert alert-error"><AlertCircle size={15} />{error}</div>
+        </div>
+      </div>
+    );
   }
-
-  const card = deck.cards[index];
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pb-16">
       <div className="w-full max-w-[480px] mt-10">
-        <Link href="/tools/school/flashcards" className="btn-text inline-flex items-center gap-1.5 mb-4">
-          <ArrowLeft size={14} /> Flashcards
+        <Link href="/tools/school" className="btn-text inline-flex items-center gap-1.5 mb-4">
+          <ArrowLeft size={14} /> School
         </Link>
 
-        <h1 className="text-xl font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>
-          {deck.title}
-        </h1>
-        <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-          {deck.cards.length} card{deck.cards.length === 1 ? "" : "s"}
-        </p>
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+            {deck.title}
+          </h1>
+          <button onClick={handleShuffle} aria-label="Shuffle" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
+            <Shuffle size={18} />
+          </button>
+        </div>
+        {deck.subject && (
+          <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>{deck.subject}</p>
+        )}
 
-        {deck.cards.length === 0 ? (
-          <p className="text-sm text-center mb-6" style={{ color: "var(--text-muted)" }}>
-            No cards yet — add one below to start studying.
+        {cards.length === 0 ? (
+          <p className="text-sm text-center mt-10" style={{ color: "var(--text-muted)" }}>
+            This deck has no cards yet.
           </p>
         ) : (
-          <div className="mb-6">
+          <>
+            <div className="text-xs mb-2" style={{ color: "var(--text-muted)" }}>
+              {known} known / {cards.length} total · card {index + 1} of {cards.length}
+            </div>
+            <div style={{ height: 6, borderRadius: 3, background: "var(--surface-2)", overflow: "hidden", marginBottom: 20 }}>
+              <div
+                style={{
+                  height: "100%", width: `${(known / cards.length) * 100}%`,
+                  background: "var(--accent)", transition: "width 0.25s ease",
+                }}
+              />
+            </div>
+
             <div
               onClick={() => setFlipped((f) => !f)}
               className="card"
               style={{
-                minHeight: 180, display: "flex", alignItems: "center", justifyContent: "center",
-                textAlign: "center", padding: 24, cursor: "pointer", position: "relative",
+                minHeight: 220, display: "flex", alignItems: "center", justifyContent: "center",
+                textAlign: "center", padding: 24, cursor: "pointer", marginBottom: 16,
               }}
             >
-              <div className="flex items-center gap-1.5 absolute" style={{ top: 12, right: 12, color: "var(--text-muted)" }}>
-                <RotateCw size={13} />
+              <div>
+                <div className="text-xs mb-3" style={{ color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                  {flipped ? "Answer" : "Question"}
+                </div>
+                <div className="text-base" style={{ lineHeight: 1.5 }}>
+                  {flipped ? current.back : current.front}
+                </div>
+                <div className="text-xs mt-4" style={{ color: "var(--text-muted)" }}>
+                  Tap to {flipped ? "see question" : "reveal answer"}
+                </div>
               </div>
-              <p className="text-base" style={{ overflowWrap: "anywhere" }}>
-                {flipped ? card.back : card.front}
-              </p>
             </div>
 
-            <div className="flex items-center justify-between mt-3">
-              <button onClick={prev} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)", maxWidth: 100 }}>
-                <ChevronLeft size={15} />
+            <div className="flex gap-2 mb-3">
+              <button onClick={goPrev} disabled={index === 0} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)", flex: 1, opacity: index === 0 ? 0.5 : 1 }}>
+                Back
               </button>
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                {index + 1} / {deck.cards.length}
-              </span>
-              <button onClick={next} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)", maxWidth: 100 }}>
-                <ChevronRight size={15} />
+              <button onClick={goNext} disabled={index === cards.length - 1} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)", flex: 1, opacity: index === cards.length - 1 ? 0.5 : 1 }}>
+                Skip
               </button>
             </div>
 
-            <button
-              onClick={() => handleDeleteCard(card.id)}
-              className="flex items-center gap-1 text-xs mt-3"
-              style={{ color: "var(--text-muted)", background: "none", border: "none" }}
-            >
-              <Trash2 size={13} /> Delete this card
-            </button>
-          </div>
-        )}
-
-        {!showAddForm ? (
-          <button onClick={() => setShowAddForm(true)} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)" }}>
-            <Plus size={14} /> Add Card
-          </button>
-        ) : (
-          <form onSubmit={handleAddCard} className="card p-4 space-y-2">
-            {error && <div className="alert alert-error"><AlertCircle size={14} />{error}</div>}
-            <textarea
-              className="input pl-3"
-              style={{ minHeight: 60 }}
-              placeholder="Front (question/term)"
-              value={front}
-              onChange={(e) => setFront(e.target.value)}
-            />
-            <textarea
-              className="input pl-3"
-              style={{ minHeight: 60 }}
-              placeholder="Back (answer/definition)"
-              value={back}
-              onChange={(e) => setBack(e.target.value)}
-            />
             <div className="flex gap-2">
-              <button className="btn-primary" type="submit" disabled={adding || !front.trim() || !back.trim()}>
-                {adding ? <Loader2 size={14} className="animate-spin" /> : "Add"}
+              <button onClick={() => markStatus("review")} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)", flex: 1 }}>
+                <RotateCcw size={14} /> Review again
               </button>
-              <button type="button" onClick={() => setShowAddForm(false)} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)" }}>
-                Cancel
+              <button onClick={() => markStatus("known")} className="btn-primary" style={{ flex: 1 }}>
+                <Check size={14} /> Know it
               </button>
             </div>
-          </form>
+          </>
         )}
       </div>
     </div>
