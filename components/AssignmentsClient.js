@@ -1,4 +1,6 @@
 "use client";
+import FlashcardGenerator from "@/components/FlashcardGenerator";
+// then drop <FlashcardGenerator /> above your "New Assignment" button
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Loader2, ClipboardList, Trash2, AlertCircle } from "lucide-react";
