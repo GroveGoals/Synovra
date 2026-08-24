@@ -267,19 +267,21 @@ model FlashcardDeck {
   id     String @id @default(uuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title   String
-  subject String?
+  title      String
+  subject    String?
+  sourceText String? @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  cards   Flashcard[]
+  cards     Flashcard[]
 }
 
 model Flashcard {
   id     String        @id @default(uuid())
   deckId String
   deck   FlashcardDeck @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  front String @db.Text
-  back  String @db.Text
+  front  String @db.Text
+  back   String @db.Text
+  status String @default("new")
   createdAt DateTime @default(now())
 }
 
