@@ -18,7 +18,7 @@ const NAV_ITEMS = [
   { id: "travel", label: "Travel", href: "/tools/travel", icon: Plane, available: true },
   { id: "home-tools", label: "Home Tools", href: "/tools/home", icon: Wrench, available: true },
   { id: "communities", label: "Communities", href: "/communities", icon: Users, available: true },
-  { id: "favorites", label: "Favorites", href: "/favorites", icon: Heart, available: true },
+  { id: "favorites", label: "Favorites", href: "/favourites", icon: Heart, available: true },
   { id: "history", label: "History", href: "/history", icon: History, available: true },
   { id: "collections", label: "Collections", href: "/collections", icon: FolderOpen, available: true },
   { id: "notifications", label: "Notifications", href: "/notifications", icon: Bell, available: true },
