@@ -40,7 +40,7 @@ export async function GET() {
         id: t.id,
         title: t.toolLabel,
         subtitle: t.inputSummary,
-        href: `/ai-tools/${t.toolId}?run=${t.id}`, // GUESS — fix to match your real route
+        href: `/ai-tools/${t.toolId}`,
         updatedAt: t.createdAt,
       })),
     },
