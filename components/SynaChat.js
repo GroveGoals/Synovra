@@ -10,6 +10,7 @@ import {
 import MarkdownText from "@/components/MarkdownText";
 
 const MAX_ATTACHMENT_BYTES = 4_000_000;
+const MAX_TEXTAREA_HEIGHT = 160;
 
 function relativeTime(dateStr) {
   const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -151,10 +152,18 @@ function SynaChatInner() {
   const galleryInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT) + "px";
+  }, [input]);
 
   useEffect(() => {
     if (!timerEndAt) return;
@@ -323,6 +332,13 @@ function SynaChatInner() {
     }
   }
 
+  function handleKeyDown(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend(e);
+    }
+  }
+
   function startNewChat() {
     setMessages([]);
     setConversationId(null);
@@ -392,6 +408,14 @@ function SynaChatInner() {
 
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: "var(--surface)" }}>
+      <style>{`
+        .syna-bubble::-webkit-scrollbar { width: 5px; }
+        .syna-bubble::-webkit-scrollbar-track { background: transparent; }
+        .syna-bubble::-webkit-scrollbar-thumb { background: transparent; border-radius: 4px; }
+        .syna-bubble:hover::-webkit-scrollbar-thumb,
+        .syna-bubble:active::-webkit-scrollbar-thumb { background: rgba(150,150,150,0.4); }
+      `}</style>
+
       <div className="px-4 pt-6 pb-3" style={{ flexShrink: 0, maxWidth: 720, margin: "0 auto", width: "100%" }}>
         <div className="flex items-center justify-between mb-3">
           <Link
@@ -465,16 +489,20 @@ function SynaChatInner() {
         {messages.map((m, i) => (
           <div
             key={i}
+            className="syna-bubble"
             style={{
               alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-              maxWidth: "88%",
+              maxWidth: "95%",
               minWidth: 0,
+              maxHeight: 420,
+              overflowY: "auto",
               background: m.role === "user" ? "var(--accent)" : "var(--surface-2)",
               color: m.role === "user" ? "white" : "var(--text)",
               borderRadius: 14,
-              padding: "10px 14px",
+              padding: "12px 16px",
               overflowWrap: "anywhere",
               wordBreak: "break-word",
+              scrollbarWidth: "thin",
             }}
           >
             {m.attachment && (
@@ -557,7 +585,7 @@ function SynaChatInner() {
           </div>
         )}
 
-        <form onSubmit={handleSend} className="flex items-center gap-2 pt-2">
+        <form onSubmit={handleSend} className="flex items-end gap-2 pt-2">
           <div style={{ position: "relative" }}>
             <button
               type="button"
@@ -604,12 +632,23 @@ function SynaChatInner() {
             <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx,.txt" onChange={handleFilePicked} style={{ display: "none" }} />
           </div>
 
-          <input
+          <textarea
+            ref={textareaRef}
             className="input pl-3"
             placeholder="Message Syna…"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
             disabled={loading}
+            rows={1}
+            style={{
+              resize: "none",
+              maxHeight: MAX_TEXTAREA_HEIGHT,
+              overflowY: "auto",
+              paddingTop: 12,
+              paddingBottom: 12,
+              lineHeight: 1.4,
+            }}
           />
           <button
             type="submit"
