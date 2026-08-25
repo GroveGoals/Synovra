@@ -5,14 +5,22 @@ import Link from "next/link";
 import {
   ArrowLeft, Star, MoreVertical, Plus, Type, Image as ImageIcon,
   Paperclip, CheckSquare, Trash2, X, Folder as FolderIcon,
-  ClipboardCheck, Send, GripVertical, Sparkles,
+  ClipboardCheck, Send, GripVertical, Sparkles, Loader2,
 } from "lucide-react";
 import {
-  BLOCK_TYPES, TEXT_BLOCK_TYPES, NON_TEXT_TYPES, createBlock, emptyDoc,
+  BLOCK_TYPES, TEXT_BLOCK_TYPES, NON_TEXT_TYPES, createBlock, emptyDoc, extractNoteContent,
 } from "@/lib/blocks";
 
 const MAX_FILE_BYTES = 4_000_000;
 const SAVE_DEBOUNCE_MS = 900;
+
+const AI_ACTIONS = [
+  { key: "flashcards", label: "Generate Flashcards", emoji: "🎴" },
+  { key: "quiz", label: "Generate Quiz", emoji: "🧠" },
+  { key: "summary", label: "Summarize", emoji: "📝" },
+  { key: "explain", label: "Explain this", emoji: "💡" },
+  { key: "keypoints", label: "Find Key Points", emoji: "🔑" },
+];
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -35,6 +43,10 @@ export default function NoteEditor({ noteId }) {
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [folders, setFolders] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const [aiMenuOpen, setAiMenuOpen] = useState(false);
+  const [aiRunning, setAiRunning] = useState(null); // action key currently running, or null
+  const [aiError, setAiError] = useState("");
 
   const blockRefs = useRef({});
   const saveTimer = useRef(null);
@@ -237,6 +249,54 @@ export default function NoteEditor({ noteId }) {
     updateBlocks(next);
   }
 
+  // Synovra AI action menu — pulls text + images straight out of the
+  // note being edited right now (not just what's already saved), and
+  // routes to the right generator.
+  async function runAiAction(actionKey) {
+    setAiError("");
+    const { text, images } = extractNoteContent(blocks);
+
+    if (!text.trim() && images.length === 0) {
+      setAiError("Add some text or an image to this note first.");
+      return;
+    }
+
+    setAiRunning(actionKey);
+    setAiMenuOpen(false);
+
+    try {
+      if (actionKey === "flashcards") {
+        const res = await fetch("/api/flashcards/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            notes: text, subject: note.subject || "",
+            title: title || "Untitled", images,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) { setAiError(data.error || "Could not generate flashcards."); setAiRunning(null); return; }
+        router.push(`/tools/school/flashcards/${data.deck.id}`);
+        return;
+      }
+
+      const res = await fetch("/api/study-tools/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toolType: actionKey, notes: text, subject: note.subject || "",
+          title: title || "Untitled", images,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setAiError(data.error || "Could not generate that."); setAiRunning(null); return; }
+      router.push(`/tools/school/smart-tools/${data.run.id}`);
+    } catch {
+      setAiError("Network error. Please try again.");
+      setAiRunning(null);
+    }
+  }
+
   if (loading || !note) {
     return <div className="flex justify-center py-16" style={{ color: "var(--text-muted)" }}>Loading…</div>;
   }
@@ -255,6 +315,30 @@ export default function NoteEditor({ noteId }) {
             <span className="text-xs" style={{ color: "var(--text-muted)" }}>
               {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
             </span>
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setAiMenuOpen((v) => !v)}
+                aria-label="Synovra AI"
+                disabled={aiRunning !== null}
+                style={{ background: "none", border: "none", color: "var(--accent)" }}
+              >
+                {aiRunning ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              </button>
+              {aiMenuOpen && (
+                <div className="card" style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, width: 210, padding: 6, zIndex: 21 }}>
+                  {AI_ACTIONS.map((action) => (
+                    <button
+                      key={action.key}
+                      onClick={() => runAiAction(action.key)}
+                      className="flex items-center gap-2 w-full p-2 rounded-lg text-sm"
+                      style={{ textAlign: "left" }}
+                    >
+                      <span>{action.emoji}</span> {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button onClick={toggleFavorite} aria-label="Favorite" style={{ background: "none", border: "none", color: note.pinned ? "var(--accent)" : "var(--text-muted)" }}>
               <Star size={18} fill={note.pinned ? "var(--accent)" : "none"} />
             </button>
@@ -286,6 +370,10 @@ export default function NoteEditor({ noteId }) {
             </div>
           </div>
         </div>
+
+        {aiError && (
+          <div className="alert alert-error mb-3">{aiError}</div>
+        )}
 
         {folderPickerOpen && (
           <>
