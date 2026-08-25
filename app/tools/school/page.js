@@ -14,7 +14,7 @@ export default async function SchoolPage() {
 
   const items = [
     { label: "Notes", sub: "Write notes, attach files, and turn them into flashcards.", href: "/notes" },
-    { label: "Flashcards", sub: "Create decks and study them anytime.", href: "/tools/school/flashcards" },
+    { label: "Smart Tools", sub: "Turn your notes into flashcards, quizzes, summaries, and more.", href: "/tools/school/flashcards" },
     ...TOOLS.filter((t) => t.category === "School").map((t) => ({
       label: t.label,
       sub: t.description,
