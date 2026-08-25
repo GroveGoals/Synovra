@@ -25,14 +25,28 @@ export async function PATCH(req, { params }) {
   const existing = await loadOwned(params.id, user.id);
   if (!existing) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
-  const { messages } = await req.json();
-  if (!Array.isArray(messages)) {
-    return NextResponse.json({ error: "Invalid messages." }, { status: 400 });
+  const body = await req.json();
+  const data = {};
+
+  if (body.messages !== undefined) {
+    if (!Array.isArray(body.messages)) {
+      return NextResponse.json({ error: "Invalid messages." }, { status: 400 });
+    }
+    data.messages = body.messages;
+  }
+  if (body.title !== undefined) {
+    if (!body.title.trim()) {
+      return NextResponse.json({ error: "Title cannot be empty." }, { status: 400 });
+    }
+    data.title = body.title.trim().slice(0, 60);
+  }
+  if (body.pinned !== undefined) {
+    data.pinned = !!body.pinned;
   }
 
   const updated = await prisma.conversation.update({
     where: { id: params.id },
-    data: { messages },
+    data,
   });
 
   return NextResponse.json({ ok: true, conversation: updated });
