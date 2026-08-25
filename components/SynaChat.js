@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft, Send, Loader2, Sparkles, AlertCircle,
   History, Plus, Trash2, X, MessageSquare, Paperclip, Camera, ImageIcon,
-  File as FileIcon, Copy, Check, ThumbsUp, ThumbsDown, Share2,
+  File as FileIcon, Copy, Check, ThumbsUp, ThumbsDown, Share2, Home, Pin, Pencil,
 } from "lucide-react";
 import MarkdownText from "@/components/MarkdownText";
 
@@ -140,6 +140,9 @@ function SynaChatInner() {
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [conversations, setConversations] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const [timerEndAt, setTimerEndAt] = useState(null);
   const [timerRemaining, setTimerRemaining] = useState(0);
@@ -326,6 +329,7 @@ function SynaChatInner() {
     setError("");
     setPendingAttachment(null);
     setHistoryOpen(false);
+    setShareCopied(false);
   }
 
   async function deleteConversation(id, e) {
@@ -335,12 +339,67 @@ function SynaChatInner() {
     if (id === conversationId) startNewChat();
   }
 
+  async function togglePin(c, e) {
+    e.stopPropagation();
+    await fetch(`/api/ai/conversations/${c.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned: !c.pinned }),
+    });
+    loadConversations();
+  }
+
+  function startRename(c, e) {
+    e.stopPropagation();
+    setRenamingId(c.id);
+    setRenameValue(c.title);
+  }
+
+  async function confirmRename(id, e) {
+    e.stopPropagation();
+    if (!renameValue.trim()) return;
+    await fetch(`/api/ai/conversations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: renameValue.trim() }),
+    });
+    setRenamingId(null);
+    loadConversations();
+  }
+
+  async function handleShareConversation() {
+    if (!conversationId) return;
+    const res = await fetch(`/api/ai/conversations/${conversationId}/share`, { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      const url = `${window.location.origin}/share/${data.shareToken}`;
+      navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }
+  }
+
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex", flexDirection: "column", background: "var(--surface)" }}>
       <div className="px-4 pt-6 pb-3" style={{ flexShrink: 0, maxWidth: 720, margin: "0 auto", width: "100%" }}>
-        <Link href="/ai-tools" className="btn-text inline-flex items-center gap-1.5 mb-3">
-          <ArrowLeft size={14} /> AI Tools
-        </Link>
+        <div className="flex items-center justify-between mb-3">
+          <Link
+            href="/ai-tools"
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: "var(--surface-2)", color: "var(--text)" }}
+            aria-label="Back to AI Tools"
+          >
+            <ArrowLeft size={16} />
+          </Link>
+          <Link
+            href="/dashboard"
+            className="w-9 h-9 rounded-full flex items-center justify-center"
+            style={{ background: "var(--surface-2)", color: "var(--text)" }}
+            aria-label="Exit to Home"
+          >
+            <Home size={16} />
+          </Link>
+        </div>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles size={18} style={{ color: "var(--accent)" }} />
@@ -349,6 +408,16 @@ function SynaChatInner() {
             </h1>
           </div>
           <div className="flex items-center gap-2">
+            {conversationId && (
+              <button
+                onClick={handleShareConversation}
+                className="w-9 h-9 rounded-full flex items-center justify-center"
+                style={{ background: "var(--surface-2)", color: shareCopied ? "var(--accent)" : "var(--text)" }}
+                aria-label="Share this chat"
+              >
+                {shareCopied ? <Check size={16} /> : <Share2 size={16} />}
+              </button>
+            )}
             <button
               onClick={startNewChat}
               className="w-9 h-9 rounded-full flex items-center justify-center"
@@ -598,28 +667,59 @@ function SynaChatInner() {
           {conversations.map((c) => (
             <div
               key={c.id}
-              onClick={() => openConversation(c.id)}
-              className="flex items-center justify-between gap-2 p-3 rounded-xl mb-1 cursor-pointer"
-              style={{ background: c.id === conversationId ? "var(--surface-2)" : "transparent", minWidth: 0 }}
+              className="rounded-xl mb-1"
+              style={{ background: c.id === conversationId ? "var(--surface-2)" : "transparent" }}
             >
-              <div className="flex items-start gap-2 min-w-0">
-                <MessageSquare size={15} style={{ color: "var(--text-muted)", marginTop: 2, flexShrink: 0 }} />
-                <div style={{ minWidth: 0 }}>
-                  <div className="text-sm font-medium" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {c.title}
+              {renamingId === c.id ? (
+                <div className="flex items-center gap-2 p-3">
+                  <input
+                    className="input pl-2"
+                    style={{ padding: "6px 8px", fontSize: 13 }}
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    autoFocus
+                  />
+                  <button onClick={(e) => confirmRename(c.id, e)} style={{ color: "var(--accent)", background: "none", border: "none" }} aria-label="Save name">
+                    <Check size={16} />
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); setRenamingId(null); }} style={{ color: "var(--text-muted)", background: "none", border: "none" }} aria-label="Cancel rename">
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => openConversation(c.id)}
+                  className="flex items-center justify-between gap-2 p-3 cursor-pointer"
+                  style={{ minWidth: 0 }}
+                >
+                  <div className="flex items-start gap-2 min-w-0">
+                    {c.pinned ? (
+                      <Pin size={15} style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0 }} fill="var(--accent)" />
+                    ) : (
+                      <MessageSquare size={15} style={{ color: "var(--text-muted)", marginTop: 2, flexShrink: 0 }} />
+                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div className="text-sm font-medium" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {c.title}
+                      </div>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {relativeTime(c.updatedAt)}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                    {relativeTime(c.updatedAt)}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={(e) => togglePin(c, e)} aria-label="Pin conversation" style={{ color: c.pinned ? "var(--accent)" : "var(--text-muted)", background: "none", border: "none" }}>
+                      <Pin size={13} fill={c.pinned ? "var(--accent)" : "none"} />
+                    </button>
+                    <button onClick={(e) => startRename(c, e)} aria-label="Rename conversation" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
+                      <Pencil size={13} />
+                    </button>
+                    <button onClick={(e) => deleteConversation(c.id, e)} aria-label="Delete conversation" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
+                      <Trash2 size={13} />
+                    </button>
                   </div>
                 </div>
-              </div>
-              <button
-                onClick={(e) => deleteConversation(c.id, e)}
-                aria-label="Delete conversation"
-                style={{ color: "var(--text-muted)", flexShrink: 0 }}
-              >
-                <Trash2 size={15} />
-              </button>
+              )}
             </div>
           ))}
         </div>
