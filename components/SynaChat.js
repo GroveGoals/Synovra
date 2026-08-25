@@ -371,8 +371,19 @@ function SynaChatInner() {
     if (!conversationId) return;
     const res = await fetch(`/api/ai/conversations/${conversationId}/share`, { method: "POST" });
     const data = await res.json();
-    if (res.ok) {
-      const url = `${window.location.origin}/share/${data.shareToken}`;
+    if (!res.ok) {
+      setError("Could not create share link.");
+      return;
+    }
+    const url = `${window.location.origin}/share/${data.shareToken}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Chat with Syna", url });
+      } catch {
+        // user cancelled the share sheet — no action needed
+      }
+    } else {
       navigator.clipboard.writeText(url);
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 2000);
@@ -696,7 +707,7 @@ function SynaChatInner() {
                     {c.pinned ? (
                       <Pin size={15} style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0 }} fill="var(--accent)" />
                     ) : (
-                      <MessageSquare size={18} style={{ color: "var(--text-muted)", marginTop: 2, flexShrink: 0 }} />
+                      <MessageSquare size={15} style={{ color: "var(--text-muted)", marginTop: 2, flexShrink: 0 }} />
                     )}
                     <div style={{ minWidth: 0 }}>
                       <div className="text-sm font-medium" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
