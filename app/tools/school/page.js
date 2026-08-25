@@ -13,8 +13,8 @@ export default async function SchoolPage() {
   if (!user || !user.verified) redirect("/login");
 
   const items = [
+    { label: "Notes", sub: "Write notes, attach files, and turn them into flashcards.", href: "/notes" },
     { label: "Flashcards", sub: "Create decks and study them anytime.", href: "/tools/school/flashcards" },
-    { label: "Assignments", sub: "Track what's due and check it off.", href: "/tools/school/assignments" },
     ...TOOLS.filter((t) => t.category === "School").map((t) => ({
       label: t.label,
       sub: t.description,
