@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/requireUser";
 import { prisma } from "@/lib/prisma";
+import { fetchRelevantImage } from "@/lib/unsplash";
 
 const MAX_ATTACHMENT_LENGTH = 5_500_000;
 
@@ -134,6 +135,21 @@ ${hasNotes ? notes : "(see attached image(s) for source material)"}`;
       { error: "Couldn't generate that right now. Please try again." },
       { status: 502 }
     );
+  }
+
+  // "Explain this" with no images of its own: try to pull in one relevant
+  // stock photo from Unsplash so the explanation isn't purely text.
+  if (toolType === "explain" && !hasImages) {
+    const query = subject?.trim() || title?.trim() || notes?.trim().slice(0, 60);
+    const photo = await fetchRelevantImage(query);
+    if (photo) {
+      const attribution = `*Photo by [${photo.photographerName}](${photo.photographerUrl}?utm_source=synovra&utm_medium=referral) on [Unsplash](https://unsplash.com/?utm_source=synovra&utm_medium=referral)*`;
+      resultText = `
+
+![${query}](${photo.url})
+
+\n${attribution}\n\n${resultText}`;
+    }
   }
 
   const run = await prisma.toolRun.create({
