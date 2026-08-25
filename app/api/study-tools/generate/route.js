@@ -28,6 +28,16 @@ Group related points under short headings where it makes sense. Keep each point 
 designed to test real understanding rather than simple recall.
 Format as a numbered markdown list. Do not include answers.`,
   },
+  explain: {
+    label: "Explanation",
+    instructions: `Explain the material in the notes below clearly and step by step.
+If there are attached images, go through them one at a time in the order given —
+use a heading like "Image 1", "Image 2", etc. for each one, and explain what it
+shows and how it connects to the notes. After covering all images (if any),
+give a short overall explanation of the text content as a final section.
+If there are no images, just explain the text content step by step.
+Format as markdown.`,
+  },
 };
 
 function partForImage(att) {
