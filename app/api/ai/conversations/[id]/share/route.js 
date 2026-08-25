@@ -1,0 +1,36 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireUser } from "@/lib/requireUser";
+import crypto from "crypto";
+
+export async function POST(req, { params }) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+
+  const conversation = await prisma.conversation.findUnique({ where: { id: params.id } });
+  if (!conversation || conversation.userId !== user.id) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
+  const token = conversation.shareToken || crypto.randomBytes(12).toString("hex");
+
+  const updated = await prisma.conversation.update({
+    where: { id: params.id },
+    data: { shareToken: token },
+  });
+
+  return NextResponse.json({ ok: true, shareToken: updated.shareToken });
+}
+
+export async function DELETE(req, { params }) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+
+  const conversation = await prisma.conversation.findUnique({ where: { id: params.id } });
+  if (!conversation || conversation.userId !== user.id) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
+  await prisma.conversation.update({ where: { id: params.id }, data: { shareToken: null } });
+  return NextResponse.json({ ok: true });
+}
