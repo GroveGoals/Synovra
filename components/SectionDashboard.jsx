@@ -1,11 +1,8 @@
 "use client";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRouter } from "next/navigation";
 
 export default function SectionDashboard({ title, icon, description, items = [] }) {
-  const router = useRouter();
-
   return (
     <div>
       <style>{`
@@ -37,9 +34,9 @@ export default function SectionDashboard({ title, icon, description, items = [] 
       `}</style>
 
       <div className="section-dash-header">
-        <button className="section-dash-back" onClick={() => router.back()} aria-label="Back">
+        <Link href="/dashboard" className="section-dash-back" aria-label="Exit to Home">
           <ChevronLeft size={18} />
-        </button>
+        </Link>
         {icon && <div className="section-dash-icon">{icon}</div>}
         <div>
           <div className="section-dash-title">{title}</div>
