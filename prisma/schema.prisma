@@ -50,6 +50,7 @@ model Conversation {
   title    String
   messages Json
   pinned Boolean @default(false)
+  shareToken String? @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
