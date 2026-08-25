@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, ChevronRight, Sparkles, MessageCircle, MessageSquare, Loader2 } from "lucide-react";
+import { Search, ChevronRight, Sparkles, MessageCircle, MessageSquare, Loader2, Pin, Trash2, Pencil, Share2, Check, X, Home } from "lucide-react";
 
 function relativeTime(dateStr) {
   const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -19,25 +19,87 @@ export default function AiToolsClient({ tools }) {
   const [query, setQuery] = useState("");
   const [conversations, setConversations] = useState([]);
   const [loadingChats, setLoadingChats] = useState(true);
+  const [renamingId, setRenamingId] = useState(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [shareCopiedId, setShareCopiedId] = useState(null);
 
-  useEffect(() => {
+  function loadConversations() {
     fetch("/api/ai/conversations")
       .then((r) => r.json())
       .then((data) => setConversations(data.conversations || []))
       .finally(() => setLoadingChats(false));
-  }, []);
+  }
+
+  useEffect(() => { loadConversations(); }, []);
 
   const filtered = tools.filter((t) =>
     (t.label + " " + t.description).toLowerCase().includes(query.toLowerCase())
   );
   const categories = [...new Set(filtered.map((t) => t.category))];
 
+  async function togglePin(c, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    await fetch(`/api/ai/conversations/${c.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned: !c.pinned }),
+    });
+    loadConversations();
+  }
+
+  function startRename(c, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setRenamingId(c.id);
+    setRenameValue(c.title);
+  }
+
+  async function confirmRename(id, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!renameValue.trim()) return;
+    await fetch(`/api/ai/conversations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: renameValue.trim() }),
+    });
+    setRenamingId(null);
+    loadConversations();
+  }
+
+  async function handleDelete(id, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm("Delete this chat?")) return;
+    await fetch(`/api/ai/conversations/${id}`, { method: "DELETE" });
+    setConversations((prev) => prev.filter((c) => c.id !== id));
+  }
+
+  async function handleShare(c, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const res = await fetch(`/api/ai/conversations/${c.id}/share`, { method: "POST" });
+    const data = await res.json();
+    if (res.ok) {
+      const url = `${window.location.origin}/share/${data.shareToken}`;
+      navigator.clipboard.writeText(url);
+      setShareCopiedId(c.id);
+      setTimeout(() => setShareCopiedId(null), 2000);
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pb-16">
       <div className="w-full max-w-[480px] mt-10">
-        <h1 className="text-xl font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>
-          AI Tools
-        </h1>
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+            AI Tools
+          </h1>
+          <Link href="/dashboard" aria-label="Exit to Home" style={{ color: "var(--text-muted)" }}>
+            <Home size={18} />
+          </Link>
+        </div>
         <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>
           Powered by Syna.
         </p>
@@ -126,28 +188,67 @@ export default function AiToolsClient({ tools }) {
           {!loadingChats && conversations.length > 0 && (
             <div className="card" style={{ padding: 6 }}>
               {conversations.map((c, i, arr) => (
-                <Link
+                <div
                   key={c.id}
-                  href={`/ai-tools/chat?id=${c.id}`}
-                  className="flex items-center justify-between p-3 rounded-xl"
                   style={{ borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none" }}
                 >
-                  <div className="flex items-start gap-2.5" style={{ minWidth: 0 }}>
-                    <MessageSquare size={16} style={{ color: "var(--text-muted)", marginTop: 2, flexShrink: 0 }} />
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        className="text-sm font-medium"
-                        style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                      >
-                        {c.title}
-                      </div>
-                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                        {relativeTime(c.updatedAt)}
-                      </div>
+                  {renamingId === c.id ? (
+                    <div className="flex items-center gap-2 p-3">
+                      <input
+                        className="input pl-2"
+                        style={{ padding: "6px 8px", fontSize: 13 }}
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        autoFocus
+                        onClick={(e) => e.preventDefault()}
+                      />
+                      <button onClick={(e) => confirmRename(c.id, e)} style={{ color: "var(--accent)", background: "none", border: "none" }} aria-label="Save name">
+                        <Check size={16} />
+                      </button>
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRenamingId(null); }} style={{ color: "var(--text-muted)", background: "none", border: "none" }} aria-label="Cancel rename">
+                        <X size={16} />
+                      </button>
                     </div>
-                  </div>
-                  <ChevronRight size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
-                </Link>
+                  ) : (
+                    <Link
+                      href={`/ai-tools/chat?id=${c.id}`}
+                      className="flex items-center justify-between p-3 rounded-xl"
+                    >
+                      <div className="flex items-start gap-2.5" style={{ minWidth: 0 }}>
+                        {c.pinned ? (
+                          <Pin size={16} style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0 }} fill="var(--accent)" />
+                        ) : (
+                          <MessageSquare size={16} style={{ color: "var(--text-muted)", marginTop: 2, flexShrink: 0 }} />
+                        )}
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            className="text-sm font-medium"
+                            style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          >
+                            {c.title}
+                          </div>
+                          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                            {relativeTime(c.updatedAt)}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2.5 flex-shrink-0">
+                        <button onClick={(e) => togglePin(c, e)} aria-label="Pin chat" style={{ color: c.pinned ? "var(--accent)" : "var(--text-muted)", background: "none", border: "none" }}>
+                          <Pin size={14} fill={c.pinned ? "var(--accent)" : "none"} />
+                        </button>
+                        <button onClick={(e) => startRename(c, e)} aria-label="Rename chat" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
+                          <Pencil size={14} />
+                        </button>
+                        <button onClick={(e) => handleShare(c, e)} aria-label="Share chat" style={{ color: shareCopiedId === c.id ? "var(--accent)" : "var(--text-muted)", background: "none", border: "none" }}>
+                          {shareCopiedId === c.id ? <Check size={14} /> : <Share2 size={14} />}
+                        </button>
+                        <button onClick={(e) => handleDelete(c.id, e)} aria-label="Delete chat" style={{ color: "var(--text-muted)", background: "none", border: "none" }}>
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </Link>
+                  )}
+                </div>
               ))}
             </div>
           )}
