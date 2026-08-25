@@ -39,7 +39,7 @@ model User {
   modActions       ModerationAction[] @relation("ModActionModerator")
   flashcardDecks FlashcardDeck[]
   notes          Note[]
-  assignments    Assignment[]
+  folders        Folder[]
   studySessions  StudySession[]
 }
 
@@ -290,25 +290,28 @@ model Note {
   id     String @id @default(uuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title   String
-  content String @db.Text
-  subject String?
-  pinned  Boolean @default(false)
+  title         String
+  coverImageUrl String?  @db.Text
+  subject       String?
+  tags          String[] @default([])
+  content       Json     @default("[]")
+  pinned        Boolean  @default(false)
+  folderId      String?
+  folder        Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  isAssignment  Boolean  @default(false)
+  dueDate       DateTime?
+  submitted     Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model Assignment {
+model Folder {
   id     String @id @default(uuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  subject   String?
-  dueDate   DateTime?
-  notes     String? @db.Text
-  completed Boolean @default(false)
+  name String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  notes     Note[]
 }
 
 model StudySession {
