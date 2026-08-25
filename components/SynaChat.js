@@ -696,7 +696,7 @@ function SynaChatInner() {
                     {c.pinned ? (
                       <Pin size={15} style={{ color: "var(--accent)", marginTop: 2, flexShrink: 0 }} fill="var(--accent)" />
                     ) : (
-                      <MessageSquare size={15} style={{ color: "var(--text-muted)", marginTop: 2, flexShrink: 0 }} />
+                      <MessageSquare size={18} style={{ color: "var(--text-muted)", marginTop: 2, flexShrink: 0 }} />
                     )}
                     <div style={{ minWidth: 0 }}>
                       <div className="text-sm font-medium" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
