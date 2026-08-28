@@ -5,7 +5,7 @@ const outfit = Outfit({ subsets: ["latin"], weight: ["500", "600", "700"], varia
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-body" });
 
 export const metadata = {
-  title: "Synovra",
+  title: "Vreedits",
   description: "AI workspace, productivity, and community — one platform.",
 };
 
