@@ -22,7 +22,7 @@ export default async function SharedChatPage({ params }) {
           </h1>
         </div>
         <p className="text-xs mb-6" style={{ color: "var(--text-muted)" }}>
-          Shared from Synovra — read only
+          Shared from Vreedits — read only
         </p>
 
         <div className="flex flex-col gap-3 mb-8">
