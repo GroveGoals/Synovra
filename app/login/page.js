@@ -45,7 +45,7 @@ export default function LoginPage() {
           Welcome back
         </h1>
         <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-          Log in to your Synovra account.
+          Log in to your Vreedits account.
         </p>
 
         {error && <div className="alert alert-error mb-4"><AlertCircle size={15} />{error}</div>}
