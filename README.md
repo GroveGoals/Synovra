@@ -49,7 +49,7 @@ that if you're uploading fresh).
    |---|---|
    | `DATABASE_URL` | your Neon pooled connection string |
    | `RESEND_API_KEY` | your Resend API key |
-   | `EMAIL_FROM` | `vreedits <onboarding@resend.dev>` |
+   | `EMAIL_FROM` | `vreedits<onboarding@resend.dev>` |
    | `JWT_SECRET` | any long random string |
 
 6. Deploy, then run once against your live database:
