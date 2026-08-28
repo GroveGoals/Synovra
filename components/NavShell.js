@@ -74,135 +74,135 @@ export default function NavShell({ children, user }) {
     <div>
       <PresenceHeartbeat />
       <style>{`
-        .synovra-topbar {
+        .vreedits-topbar {
           display: flex; align-items: center; justify-content: space-between;
           padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface);
           position: sticky; top: 0; z-index: 30;
         }
-        .synovra-hamburger {
+        .vreedits-hamburger {
           width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--border);
           background: var(--surface-2); display: flex; align-items: center; justify-content: center;
           cursor: pointer; color: var(--text);
         }
-        .synovra-brand { font-size: 17px; font-weight: 600; font-family: var(--font-display); }
-        .synovra-overlay {
+        .vreedits-brand { font-size: 17px; font-weight: 600; font-family: var(--font-display); }
+        .vreedits-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.45); opacity: 0; pointer-events: none;
           transition: opacity 0.25s ease; z-index: 40;
         }
-        .synovra-overlay.open { opacity: 1; pointer-events: auto; }
-        .synovra-menu {
+        .vreedits-overlay.open { opacity: 1; pointer-events: auto; }
+        .vreedits-menu {
           position: fixed; top: 0; left: 0; bottom: 0; width: min(320px, 86vw);
           background: var(--surface); border-right: 1px solid var(--border);
           box-shadow: var(--shadow); transform: translateX(-100%);
           transition: transform 0.3s cubic-bezier(0.22,1,0.36,1); z-index: 50;
           display: flex; flex-direction: column; overflow-y: auto;
         }
-        .synovra-menu.open { transform: translateX(0); }
-        .synovra-menu-close {
+        .vreedits-menu.open { transform: translateX(0); }
+        .vreedits-menu-close {
           position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border-radius: 10px;
           border: 1px solid var(--border); background: var(--surface-2); display: flex;
           align-items: center; justify-content: center; cursor: pointer; color: var(--text-muted);
         }
-        .synovra-profile-block { padding: 28px 20px 18px; border-bottom: 1px solid var(--border); }
-        .synovra-avatar-wrap { position: relative; width: 64px; height: 64px; cursor: pointer; }
-        .synovra-avatar {
+        .vreedits-profile-block { padding: 28px 20px 18px; border-bottom: 1px solid var(--border); }
+        .vreedits-avatar-wrap { position: relative; width: 64px; height: 64px; cursor: pointer; }
+        .vreedits-avatar {
           width: 64px; height: 64px; border-radius: 50%; object-fit: cover;
           box-shadow: 0 0 0 2px var(--border); display: flex; align-items: center; justify-content: center;
           background: var(--accent-soft); color: var(--accent); font-family: var(--font-display);
           font-weight: 600; font-size: 22px;
         }
-        .synovra-status-dot {
+        .vreedits-status-dot {
           position: absolute; bottom: 1px; right: 1px; width: 15px; height: 15px; border-radius: 50%;
           border: 2.5px solid var(--surface);
         }
-        .synovra-status-dot.online { background: var(--success); }
-        .synovra-status-dot.offline { background: var(--text-muted); }
-        .synovra-name-row { display: flex; align-items: center; gap: 6px; margin-top: 12px; cursor: pointer; }
-        .synovra-display-name { font-size: 16px; font-weight: 600; }
-        .synovra-popover-panel {
+        .vreedits-status-dot.online { background: var(--success); }
+        .vreedits-status-dot.offline { background: var(--text-muted); }
+        .vreedits-name-row { display: flex; align-items: center; gap: 6px; margin-top: 12px; cursor: pointer; }
+        .vreedits-display-name { font-size: 16px; font-weight: 600; }
+        .vreedits-popover-panel {
           position: absolute; top: 4px; left: 0; width: 200px; background: var(--surface);
           border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); padding: 6px;
           z-index: 60; opacity: 0; transform: translateY(-6px); pointer-events: none;
           transition: opacity 0.15s ease, transform 0.15s ease;
         }
-        .synovra-popover-panel.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
-        .synovra-popover-item {
+        .vreedits-popover-panel.open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .vreedits-popover-item {
           display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border-radius: 9px;
           font-size: 13.5px; font-weight: 500; color: var(--text); background: transparent; border: none;
           cursor: pointer; text-align: left;
         }
-        .synovra-popover-item:hover { background: var(--surface-2); }
-        .synovra-popover-item.danger { color: var(--danger); }
-        .synovra-nav-scroll { padding: 10px 12px 14px; flex: 1; }
-        .synovra-nav-item {
+        .vreedits-popover-item:hover { background: var(--surface-2); }
+        .vreedits-popover-item.danger { color: var(--danger); }
+        .vreedits-nav-scroll { padding: 10px 12px 14px; flex: 1; }
+        .vreedits-nav-item {
           display: flex; align-items: center; gap: 11px; width: 100%; padding: 10px 12px; border-radius: 10px;
           border: none; background: transparent; color: var(--text-muted); font-size: 14px; font-weight: 500;
           cursor: pointer; margin-bottom: 2px; text-align: left;
         }
-        .synovra-nav-item:hover { background: var(--surface-2); color: var(--text); }
-        .synovra-nav-item.active { background: var(--accent-soft); color: var(--accent); }
-        .synovra-nav-item.locked { opacity: 0.4; cursor: not-allowed; }
-        .synovra-lock-badge { margin-left: auto; }
+        .vreedits-nav-item:hover { background: var(--surface-2); color: var(--text); }
+        .vreedits-nav-item.active { background: var(--accent-soft); color: var(--accent); }
+        .vreedits-nav-item.locked { opacity: 0.4; cursor: not-allowed; }
+        .vreedits-lock-badge { margin-left: auto; }
       `}</style>
 
-      <div className="synovra-topbar">
+      <div className="vreedits-topbar">
         <button ref={hamburgerRef} className="synovra-hamburger" onClick={() => setMenuOpen((v) => !v)} aria-label="Open menu">
           <Menu size={20} />
         </button>
-        <span className="synovra-brand">Vreedits</span>
+        <span className="vreedits-brand">Vreedits</span>
         <div style={{ width: 42 }} />
       </div>
 
-      <div className={`synovra-overlay ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(false)} />
+      <div className={`vreedits-overlay ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(false)} />
 
-      <nav ref={menuRef} className={`synovra-menu ${menuOpen ? "open" : ""}`}>
-        <button className="synovra-menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">
+      <nav ref={menuRef} className={`vreedits-menu ${menuOpen ? "open" : ""}`}>
+        <button className="vreedits-menu-close" onClick={() => setMenuOpen(false)} aria-label="Close menu">
           <X size={17} />
         </button>
 
-        <div className="synovra-profile-block">
+        <div className="vreedits-profile-block">
           <div style={{ position: "relative" }} ref={profileRef}>
-            <div className="synovra-avatar-wrap" onClick={() => setProfileMenuOpen((v) => !v)}>
+            <div className="vreedits-avatar-wrap" onClick={() => setProfileMenuOpen((v) => !v)}>
               {user?.avatarDataUrl ? (
-                <img className="synovra-avatar" src={user.avatarDataUrl} alt="Profile" />
+                <img className="vreedits-avatar" src={user.avatarDataUrl} alt="Profile" />
               ) : (
-                <div className="synovra-avatar">{user?.username?.slice(0, 2).toUpperCase()}</div>
+                <div className="vreedits-avatar">{user?.username?.slice(0, 2).toUpperCase()}</div>
               )}
-              <span className={`synovra-status-dot ${user?.online ? "online" : "offline"}`} />
+              <span className={`vreedits-status-dot ${user?.online ? "online" : "offline"}`} />
             </div>
-            <div className="synovra-name-row" onClick={() => setProfileMenuOpen((v) => !v)}>
-              <span className="synovra-display-name">{user?.username}</span>
+            <div className="vreedits-name-row" onClick={() => setProfileMenuOpen((v) => !v)}>
+              <span className="vreedits-display-name">{user?.username}</span>
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 3 }}>
               {user?.online ? "Online" : "Offline"}
             </div>
 
-            <div className={`synovra-popover-panel ${profileMenuOpen ? "open" : ""}`}>
-              <Link href="/profile" className="synovra-popover-item" onClick={() => setProfileMenuOpen(false)}>
+            <div className={`vreedits-popover-panel ${profileMenuOpen ? "open" : ""}`}>
+              <Link href="/profile" className="vreedits-popover-item" onClick={() => setProfileMenuOpen(false)}>
                 <User size={15} /> View Profile
               </Link>
-              <Link href="/profile" className="synovra-popover-item" onClick={() => setProfileMenuOpen(false)}>
+              <Link href="/profile" className="vreedits-popover-item" onClick={() => setProfileMenuOpen(false)}>
                 <User size={15} /> Edit Profile
               </Link>
-              <Link href="/settings" className="synovra-popover-item" onClick={() => setProfileMenuOpen(false)}>
+              <Link href="/settings" className="vreedits-popover-item" onClick={() => setProfileMenuOpen(false)}>
                 <Settings size={15} /> Settings
               </Link>
-              <button className="synovra-popover-item danger" onClick={handleLogout}>
+              <button className="vreedits-popover-item danger" onClick={handleLogout}>
                 <LogOut size={15} /> Logout
               </button>
             </div>
           </div>
         </div>
 
-        <div className="synovra-nav-scroll">
+        <div className="vreedits-nav-scroll">
           {NAV_ITEMS.map((item) => {
             const isActive = isItemActive(item);
             if (!item.available) {
               return (
-                <div key={item.id} className="synovra-nav-item locked" title="Coming in a later phase">
+                <div key={item.id} className="vreedits-nav-item locked" title="Coming in a later phase">
                   <item.icon size={17} />
                   {item.label}
-                  <Lock size={13} className="synovra-lock-badge" />
+                  <Lock size={13} className="vreedits-lock-badge" />
                 </div>
               );
             }
@@ -210,7 +210,7 @@ export default function NavShell({ children, user }) {
               <Link
                 key={item.id}
                 href={item.href}
-                className={`synovra-nav-item ${isActive ? "active" : ""}`}
+                className={`vreedits-nav-item ${isActive ? "active" : ""}`}
                 onClick={() => setMenuOpen(false)}
               >
                 <item.icon size={17} />
