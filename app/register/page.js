@@ -66,7 +66,7 @@ export default function RegisterPage() {
           Create your account
         </h1>
         <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-          Join Synovra in under a minute.
+          Join Vreedits in under a minute.
         </p>
 
         {error && (
