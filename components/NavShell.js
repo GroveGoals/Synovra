@@ -149,7 +149,7 @@ export default function NavShell({ children, user }) {
         <button ref={hamburgerRef} className="synovra-hamburger" onClick={() => setMenuOpen((v) => !v)} aria-label="Open menu">
           <Menu size={20} />
         </button>
-        <span className="synovra-brand">Synovra</span>
+        <span className="synovra-brand">Vreedits</span>
         <div style={{ width: 42 }} />
       </div>
 
