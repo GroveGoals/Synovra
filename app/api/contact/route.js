@@ -16,7 +16,7 @@ export async function POST(req) {
   try {
     await sendEmail({
       to: supportEmail,
-      subject: `Synovra contact form: ${name.trim()}`,
+      subject: `Vreedits contact form: ${name.trim()}`,
       html: `
         <div style="font-family: -apple-system, sans-serif;">
           <p><strong>From:</strong> ${name.trim()} (${email.trim()})</p>
