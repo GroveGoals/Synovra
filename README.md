@@ -1,4 +1,4 @@
-# Synovra — V1, Phase 1 (Auth)
+# vreedits — V1, Phase 1 (Auth)
 
 Real, working auth system: register, login, logout, email verification,
 forgot/reset password. Next.js (App Router) + Prisma + Postgres.
@@ -49,7 +49,7 @@ that if you're uploading fresh).
    |---|---|
    | `DATABASE_URL` | your Neon pooled connection string |
    | `RESEND_API_KEY` | your Resend API key |
-   | `EMAIL_FROM` | `Synovra <onboarding@resend.dev>` |
+   | `EMAIL_FROM` | `vreedits <onboarding@resend.dev>` |
    | `JWT_SECRET` | any long random string |
 
 6. Deploy, then run once against your live database:
