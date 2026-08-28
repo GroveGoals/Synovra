@@ -31,7 +31,7 @@ Visit http://localhost:3000 — it should redirect you to /login.
 
 ## 3. Push to GitHub
 
-Unzip this project, then upload/replace everything inside the `synovra`
+Unzip this project, then upload/replace everything inside the `vreedits`
 folder into your GitHub repo (GitHub overwrites matching files
 automatically; delete `lib/email.js` manually first if it's stuck as a
 leftover from a previous version — this version needs it back, so ignore
