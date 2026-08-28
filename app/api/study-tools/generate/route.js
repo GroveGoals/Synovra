@@ -143,10 +143,14 @@ ${hasNotes ? notes : "(see attached image(s) for source material)"}`;
     const query = subject?.trim() || title?.trim() || notes?.trim().slice(0, 60);
     const photo = await fetchRelevantImage(query);
     if (photo) {
-      const attribution = `*Photo by [${photo.photographerName}](${photo.photographerUrl}?utm_source=synovra&utm_medium=referral) on [Unsplash](https://unsplash.com/?utm_source=synovra&utm_medium=referral)*`;
+      const attribution = `*Photo by [${photo.photographerName}](${photo.photographerUrl}?utm_source=vreedits&utm_medium=referral) on [Unsplash](https://unsplash.com/?utm_source=vreedits&utm_medium=referral)*`;
       resultText = `
 
+
+
 ![${query}](${photo.url})
+
+
 
 \n${attribution}\n\n${resultText}`;
     }
