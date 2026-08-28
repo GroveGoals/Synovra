@@ -57,7 +57,7 @@ export default async function SharedChatPage({ params }) {
               <Sparkles size={18} />
             </div>
             <div>
-              <div className="text-sm font-semibold">Made with Syna on Synovra</div>
+              <div className="text-sm font-semibold">Made with Syna on Vreedits</div>
               <div className="text-xs" style={{ color: "var(--text-muted)" }}>
                 Join free and chat with your own AI tools
               </div>
