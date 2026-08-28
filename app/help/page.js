@@ -6,7 +6,7 @@ const FAQS = [
   { q: "How do I reset my password?", a: "Go to the login page and tap \"Forgot password?\" — you'll get a code by email to set a new one." },
   { q: "How do I change my username?", a: "Go to My Profile from the menu, update your username, and save." },
   { q: "How do I upload a profile picture?", a: "On My Profile, tap the camera icon on your avatar and choose a photo." },
-  { q: "Is Synovra free?", a: "Yes — core features are free. Premium plans are coming soon." },
+  { q: "Is vreedits free?", a: "Yes — core features are free. Premium plans are coming soon." },
 ];
 
 export default async function HelpPage() {
