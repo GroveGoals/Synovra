@@ -129,108 +129,125 @@ export default function CameraCapture({ onCapture, onClose }) {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 500, display: "flex", flexDirection: "column" }}>
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        style={{ flex: 1, width: "100%", objectFit: "cover", transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
-      />
-      <canvas ref={canvasRef} style={{ display: "none" }} />
+    <div style={{ position: "fixed", inset: 0, background: "#000", zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 12px" }}>
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          maxWidth: 420,
+          height: "100%",
+          maxHeight: 760,
+          borderRadius: 28,
+          overflow: "hidden",
+          background: "#111",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{ flex: 1, width: "100%", objectFit: "cover", transform: facingMode === "user" ? "scaleX(-1)" : "none" }}
+        />
+        <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      {error && (
-        <div style={{ position: "absolute", top: "40%", left: 20, right: 20, color: "white", textAlign: "center", fontSize: 14, background: "rgba(0,0,0,0.6)", padding: 12, borderRadius: 10 }}>
-          {error}
-        </div>
-      )}
+        {error && (
+          <div style={{ position: "absolute", top: "40%", left: 16, right: 16, color: "white", textAlign: "center", fontSize: 14, background: "rgba(0,0,0,0.6)", padding: 12, borderRadius: 10 }}>
+            {error}
+          </div>
+        )}
 
-      {/* Top bar */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex", justifyContent: "space-between", padding: 16 }}>
-        <button type="button" onClick={onClose} aria-label="Close" style={{ background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 34, height: 34, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <X size={18} />
-        </button>
-        <div style={{ display: "flex", gap: 12 }}>
-          <button type="button" onClick={() => setFlashOn((v) => !v)} aria-label="Toggle flash" style={{ background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 34, height: 34, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {flashOn ? <Zap size={16} /> : <ZapOff size={16} />}
+        {/* Top bar */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex", justifyContent: "space-between", padding: 16 }}>
+          <button type="button" onClick={onClose} aria-label="Close" style={{ background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 34, height: 34, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={18} />
           </button>
-          <button type="button" onClick={() => setCountdown((c) => (c === 0 ? 3 : 0))} aria-label="Toggle timer" style={{ background: countdown ? "var(--accent)" : "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 34, height: 34, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Clock size={16} />
-          </button>
-          <button type="button" onClick={flipCamera} aria-label="Flip camera" style={{ background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 34, height: 34, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <RefreshCw size={16} />
-          </button>
-        </div>
-      </div>
-
-      {/* Bottom controls */}
-      <div style={{ position: "absolute", bottom: 24, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-        <div style={{ display: "flex", gap: 24 }}>
-          <button
-            type="button"
-            onClick={() => setMode("photo")}
-            style={{ background: "none", border: "none", color: mode === "photo" ? "white" : "rgba(255,255,255,0.5)", fontWeight: 700, fontSize: 13, letterSpacing: 0.5 }}
-          >
-            PHOTO
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("video")}
-            style={{ background: "none", border: "none", color: mode === "video" ? "white" : "rgba(255,255,255,0.5)", fontWeight: 700, fontSize: 13, letterSpacing: 0.5 }}
-          >
-            VIDEO
-          </button>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button type="button" onClick={() => setFlashOn((v) => !v)} aria-label="Toggle flash" style={{ background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 34, height: 34, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {flashOn ? <Zap size={16} /> : <ZapOff size={16} />}
+            </button>
+            <button type="button" onClick={() => setCountdown((c) => (c === 0 ? 3 : 0))} aria-label="Toggle timer" style={{ background: countdown ? "var(--accent)" : "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 34, height: 34, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Clock size={16} />
+            </button>
+            <button type="button" onClick={flipCamera} aria-label="Flip camera" style={{ background: "rgba(0,0,0,0.4)", border: "none", borderRadius: "50%", width: 34, height: 34, color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <RefreshCw size={16} />
+            </button>
+          </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", width: "100%", padding: "0 24px", justifyContent: "center", position: "relative" }}>
-          {/* Gallery import thumbnail — bottom-left affordance, like TikTok's */}
-          <button
-            type="button"
-            onClick={() => galleryInputRef.current?.click()}
-            aria-label="Import from gallery"
-            style={{
-              position: "absolute", left: 24, width: 44, height: 44, borderRadius: 10,
-              border: "2px solid rgba(255,255,255,0.6)", overflow: "hidden",
-              background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center",
-              padding: 0,
-            }}
-          >
-            {lastThumb ? (
-              <img src={lastThumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              <ImageIcon size={18} color="white" />
-            )}
-          </button>
-          <input
-            ref={galleryInputRef}
-            type="file"
-            accept="image/*,video/*"
-            onChange={handleGalleryPick}
-            style={{ display: "none" }}
-          />
+        {/* Bottom controls */}
+        <div style={{ position: "absolute", bottom: 20, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 14 }}>
+          <div style={{ display: "flex", gap: 24 }}>
+            <button
+              type="button"
+              onClick={() => setMode("photo")}
+              style={{ background: "none", border: "none", color: mode === "photo" ? "white" : "rgba(255,255,255,0.5)", fontWeight: 700, fontSize: 13, letterSpacing: 0.5 }}
+            >
+              PHOTO
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("video")}
+              style={{ background: "none", border: "none", color: mode === "video" ? "white" : "rgba(255,255,255,0.5)", fontWeight: 700, fontSize: 13, letterSpacing: 0.5 }}
+            >
+              VIDEO
+            </button>
+          </div>
 
-          {/* Capture button — square while recording (TikTok convention), circle otherwise */}
-          <button
-            type="button"
-            onClick={handleCapturePress}
-            aria-label={mode === "photo" ? "Take photo" : recording ? "Stop recording" : "Start recording"}
-            style={{
-              width: 74, height: 74, borderRadius: "50%",
-              border: "4px solid white", background: "transparent",
-              display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
-            }}
-          >
-            <span
+          <div style={{ display: "flex", alignItems: "center", width: "100%", padding: "0 20px", justifyContent: "center", position: "relative" }}>
+            {/* Gallery import thumbnail. Note: browsers don't allow reading the device
+                photo gallery without an explicit picker each time, so this shows the
+                last thing captured/imported THIS session — not a live camera-roll feed. */}
+            <button
+              type="button"
+              onClick={() => galleryInputRef.current?.click()}
+              aria-label="Import from gallery"
               style={{
-                display: "block",
-                width: recording ? 30 : mode === "video" ? 58 : 62,
-                height: recording ? 30 : mode === "video" ? 58 : 62,
-                borderRadius: recording ? 8 : "50%",
-                background: mode === "video" ? "#ff3b3b" : "white",
-                transition: "all 0.18s ease",
+                position: "absolute", left: 16, width: 42, height: 42, borderRadius: 10,
+                border: "2px solid rgba(255,255,255,0.6)", overflow: "hidden",
+                background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center",
+                padding: 0,
               }}
+            >
+              {lastThumb ? (
+                <img src={lastThumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <ImageIcon size={18} color="white" />
+              )}
+            </button>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*,video/*"
+              onChange={handleGalleryPick}
+              style={{ display: "none" }}
             />
-          </button>
+
+            {/* Capture button — square while recording, circle otherwise */}
+            <button
+              type="button"
+              onClick={handleCapturePress}
+              aria-label={mode === "photo" ? "Take photo" : recording ? "Stop recording" : "Start recording"}
+              style={{
+                width: 72, height: 72, borderRadius: "50%",
+                border: "4px solid white", background: "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+              }}
+            >
+              <span
+                style={{
+                  display: "block",
+                  width: recording ? 28 : mode === "video" ? 56 : 60,
+                  height: recording ? 28 : mode === "video" ? 56 : 60,
+                  borderRadius: recording ? 8 : "50%",
+                  background: mode === "video" ? "#ff3b3b" : "white",
+                  transition: "all 0.18s ease",
+                }}
+              />
+            </button>
+          </div>
         </div>
       </div>
     </div>
