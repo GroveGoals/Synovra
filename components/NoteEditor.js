@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Star, MoreVertical, Plus, Type, Image as ImageIcon,
   Paperclip, CheckSquare, Trash2, X, Folder as FolderIcon,
-  ClipboardCheck, Send, GripVertical, Sparkles, Loader2,
+  ClipboardCheck, Send, GripVertical, Sparkles, Loader2, AlertCircle, RefreshCw,
 } from "lucide-react";
 import {
   BLOCK_TYPES, TEXT_BLOCK_TYPES, NON_TEXT_TYPES, createBlock, emptyDoc, extractNoteContent,
@@ -37,19 +37,19 @@ export default function NoteEditor({ noteId }) {
   const [title, setTitle] = useState("");
   const [blocks, setBlocks] = useState(emptyDoc());
   const [loading, setLoading] = useState(true);
-  const [saveState, setSaveState] = useState("idle");
+  const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
   const [menuOpenAt, setMenuOpenAt] = useState(null);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const [folders, setFolders] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
 
   const [aiMenuOpen, setAiMenuOpen] = useState(false);
-  const [aiRunning, setAiRunning] = useState(null); // action key currently running, or null
+  const [aiRunning, setAiRunning] = useState(null);
   const [aiError, setAiError] = useState("");
 
   const blockRefs = useRef({});
   const saveTimer = useRef(null);
+  const pendingPatchRef = useRef({});
   const imageInputRef = useRef(null);
   const fileInputRef = useRef(null);
   const pendingBlockIdRef = useRef(null);
@@ -78,22 +78,52 @@ export default function NoteEditor({ noteId }) {
     })();
   }, [noteId]);
 
+  // Sends whatever's queued in pendingPatchRef right now, bypassing the
+  // debounce. Used on visibility change, page unload, and unmount so a
+  // save never silently gets dropped by navigating away too quickly.
+  const flushSave = useCallback(() => {
+    if (saveTimer.current) {
+      clearTimeout(saveTimer.current);
+      saveTimer.current = null;
+    }
+    const patch = pendingPatchRef.current;
+    if (Object.keys(patch).length === 0) return;
+    pendingPatchRef.current = {};
+    setSaveState("saving");
+    fetch(`/api/notes/${noteId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+      keepalive: true,
+    })
+      .then((res) => {
+        setSaveState(res.ok ? "saved" : "error");
+      })
+      .catch(() => setSaveState("error"));
+  }, [noteId]);
+
   const scheduleSave = useCallback((patch) => {
+    pendingPatchRef.current = { ...pendingPatchRef.current, ...patch };
     setSaveState("saving");
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      try {
-        await fetch(`/api/notes/${noteId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patch),
-        });
-        setSaveState("saved");
-      } catch {
-        setSaveState("idle");
-      }
-    }, SAVE_DEBOUNCE_MS);
-  }, [noteId]);
+    saveTimer.current = setTimeout(flushSave, SAVE_DEBOUNCE_MS);
+  }, [flushSave]);
+
+  // Flush immediately whenever the tab is hidden/backgrounded, the page
+  // is about to unload, or this editor unmounts (e.g. tapping Back) —
+  // instead of waiting out the debounce and risking the save never firing.
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === "hidden") flushSave();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("pagehide", flushSave);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pagehide", flushSave);
+      flushSave();
+    };
+  }, [flushSave]);
 
   function handleTitleChange(e) {
     const value = e.target.value;
@@ -249,9 +279,6 @@ export default function NoteEditor({ noteId }) {
     updateBlocks(next);
   }
 
-  // Synovra AI action menu — pulls text + images straight out of the
-  // note being edited right now (not just what's already saved), and
-  // routes to the right generator.
   async function runAiAction(actionKey) {
     setAiError("");
     const { text, images } = extractNoteContent(blocks);
@@ -312,13 +339,25 @@ export default function NoteEditor({ noteId }) {
             <ArrowLeft size={14} /> Back
           </button>
           <div className="flex items-center gap-3">
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-              {saveState === "saving" ? "Saving…" : saveState === "saved" ? "Saved" : ""}
+            <span
+              className="text-xs flex items-center gap-1"
+              style={{ color: saveState === "error" ? "var(--danger, #e55)" : "var(--text-muted)" }}
+            >
+              {saveState === "saving" && "Saving…"}
+              {saveState === "saved" && "Saved"}
+              {saveState === "error" && (
+                <>
+                  Save failed
+                  <button onClick={flushSave} aria-label="Retry save" style={{ background: "none", border: "none", color: "var(--danger, #e55)", display: "flex" }}>
+                    <RefreshCw size={11} />
+                  </button>
+                </>
+              )}
             </span>
             <div style={{ position: "relative" }}>
               <button
                 onClick={() => setAiMenuOpen((v) => !v)}
-                aria-label="Synovra AI"
+                aria-label="Vreedits AI"
                 disabled={aiRunning !== null}
                 style={{ background: "none", border: "none", color: "var(--accent)" }}
               >
@@ -370,6 +409,13 @@ export default function NoteEditor({ noteId }) {
             </div>
           </div>
         </div>
+
+        {saveState === "error" && (
+          <div className="alert alert-error mb-3">
+            <AlertCircle size={14} />
+            Your last change didn't save. Tap the retry icon above before leaving this note.
+          </div>
+        )}
 
         {aiError && (
           <div className="alert alert-error mb-3">{aiError}</div>
