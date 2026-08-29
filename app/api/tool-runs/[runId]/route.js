@@ -1,5 +1,3 @@
-// Save as: app/api/tool-runs/[runId]/route.js
-
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/requireUser";
 import { prisma } from "@/lib/prisma";
@@ -32,4 +30,17 @@ export async function PATCH(req, { params }) {
   });
 
   return NextResponse.json({ ok: true, run: updated });
+}
+
+export async function DELETE(req, { params }) {
+  const user = await requireUser();
+  if (!user) return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+
+  const run = await prisma.toolRun.findUnique({ where: { id: params.runId } });
+  if (!run || run.userId !== user.id) {
+    return NextResponse.json({ error: "Not found." }, { status: 404 });
+  }
+
+  await prisma.toolRun.delete({ where: { id: params.runId } });
+  return NextResponse.json({ ok: true });
 }
