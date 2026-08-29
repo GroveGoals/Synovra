@@ -17,6 +17,7 @@ model User {
   lastSeenAt   DateTime?
   avatarDataUrl String?  @db.Text
   bio           String?  @db.Text
+  allowDownloads Boolean @default(true)
   country       String?
   language      String   @default("English")
   isPublic      Boolean  @default(true)
