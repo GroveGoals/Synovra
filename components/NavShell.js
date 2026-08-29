@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 
 const NAV_ITEMS = [
-  { id: "home", label: "Home", href: "/dashboard", icon: Home, available: true },
+  { id: "home", label: "Home", href: "/feed", icon: Home, available: true },
   { id: "ai-tools", label: "AI Tools", href: "/ai-tools", icon: Bot, available: true },
   { id: "school", label: "School", href: "/tools/school", icon: GraduationCap, available: true },
   { id: "business", label: "Business", href: "/tools/business", icon: Briefcase, available: true },
@@ -224,4 +224,4 @@ export default function NavShell({ children, user }) {
       {children}
     </div>
   );
-}
+    }
