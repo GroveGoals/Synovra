@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Heart, MessageCircle, Share2, Bookmark, RotateCw, Plus, X, Send,
   Loader2, Search, User as UserIcon, Download, Trash2, Music2,
@@ -552,9 +553,9 @@ export default function FeedClient({ user }) {
           background: "linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0))",
         }}
       >
-        <button aria-label="Profile" style={{ background: "none", border: "none", color: "white" }}>
+        <Link href="/profile" aria-label="My Profile" style={{ background: "none", border: "none", color: "white" }}>
           <UserIcon size={22} />
-        </button>
+        </Link>
         <button aria-label="Search" style={{ background: "none", border: "none", color: "white" }}>
           <Search size={22} />
         </button>
@@ -640,4 +641,3 @@ export default function FeedClient({ user }) {
     </div>
   );
 }
-
