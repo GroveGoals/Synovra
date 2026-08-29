@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/requireUser";
 import { prisma } from "@/lib/prisma";
+import { fetchRelevantImage } from "@/lib/unsplash";
 
 const MAX_ATTACHMENT_LENGTH = 5_500_000;
 
@@ -131,16 +132,35 @@ ${hasNotes ? notes : "(see attached image(s) for source material)"}`;
     );
   }
 
+  let coverImageUrl = null;
+  let coverImageCreditName = null;
+  let coverImageCreditUrl = null;
+
+  if (!hasImages) {
+    const query = subject?.trim() || title?.trim() || notes?.trim().slice(0, 60);
+    const photo = await fetchRelevantImage(query);
+    if (photo) {
+      coverImageUrl = photo.url;
+      coverImageCreditName = photo.photographerName;
+      coverImageCreditUrl = photo.photographerUrl;
+    } else {
+      console.error(`[flashcards] No fallback cover image found for query: "${query}"`);
+    }
+  }
+
   const deck = await prisma.flashcardDeck.create({
     data: {
       userId: user.id,
       title: title?.trim() || subject?.trim() || "Untitled Deck",
       subject: subject?.trim() || null,
       sourceText: hasNotes ? notes.trim() : null,
+      coverImageUrl,
+      coverImageCreditName,
+      coverImageCreditUrl,
       cards: { create: cards.map((c) => ({ front: c.front, back: c.back })) },
     },
     include: { cards: true },
   });
 
   return NextResponse.json({ ok: true, deck });
-}
+      }
