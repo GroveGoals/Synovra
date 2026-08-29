@@ -271,6 +271,9 @@ model FlashcardDeck {
   title      String
   subject    String?
   sourceText String? @db.Text
+  coverImageUrl        String? @db.Text
+  coverImageCreditName String?
+  coverImageCreditUrl  String? @db.Text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   cards     Flashcard[]
