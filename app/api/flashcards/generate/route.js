@@ -132,20 +132,39 @@ ${hasNotes ? notes : "(see attached image(s) for source material)"}`;
     );
   }
 
+  // One Unsplash image per card, based on that card's question — only
+  // when the note has no images of its own. This means N Unsplash calls
+  // for an N-card deck; expect the free-tier hourly limit to bite on
+  // heavy use until the app is approved for production.
+  let cardsWithImages;
   let coverImageUrl = null;
   let coverImageCreditName = null;
   let coverImageCreditUrl = null;
 
   if (!hasImages) {
-    const query = subject?.trim() || title?.trim() || notes?.trim().slice(0, 60);
-    const photo = await fetchRelevantImage(query);
-    if (photo) {
-      coverImageUrl = photo.url;
-      coverImageCreditName = photo.photographerName;
-      coverImageCreditUrl = photo.photographerUrl;
-    } else {
-      console.error(`[flashcards] No fallback cover image found for query: "${query}"`);
+    cardsWithImages = await Promise.all(
+      cards.map(async (c) => {
+        const photo = await fetchRelevantImage(c.front);
+        if (!photo) {
+          console.error(`[flashcards] No image found for card: "${c.front}"`);
+          return { ...c, imageUrl: null, imageCreditName: null, imageCreditUrl: null };
+        }
+        return {
+          ...c,
+          imageUrl: photo.url,
+          imageCreditName: photo.photographerName,
+          imageCreditUrl: photo.photographerUrl,
+        };
+      })
+    );
+    const firstWithImage = cardsWithImages.find((c) => c.imageUrl);
+    if (firstWithImage) {
+      coverImageUrl = firstWithImage.imageUrl;
+      coverImageCreditName = firstWithImage.imageCreditName;
+      coverImageCreditUrl = firstWithImage.imageCreditUrl;
     }
+  } else {
+    cardsWithImages = cards.map((c) => ({ ...c, imageUrl: null, imageCreditName: null, imageCreditUrl: null }));
   }
 
   const deck = await prisma.flashcardDeck.create({
@@ -157,10 +176,18 @@ ${hasNotes ? notes : "(see attached image(s) for source material)"}`;
       coverImageUrl,
       coverImageCreditName,
       coverImageCreditUrl,
-      cards: { create: cards.map((c) => ({ front: c.front, back: c.back })) },
+      cards: {
+        create: cardsWithImages.map((c) => ({
+          front: c.front,
+          back: c.back,
+          imageUrl: c.imageUrl,
+          imageCreditName: c.imageCreditName,
+          imageCreditUrl: c.imageCreditUrl,
+        })),
+      },
     },
     include: { cards: true },
   });
 
   return NextResponse.json({ ok: true, deck });
-      }
+}
