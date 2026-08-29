@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Loader2, User, HelpCircle, Phone, ChevronRight,
-  Mail, ShieldCheck, Calendar, Globe, Languages, Lock, Unlock, Circle,
+  Mail, ShieldCheck, Calendar, Globe, Languages, Lock, Unlock, Circle, ShieldQuestion,
 } from "lucide-react";
 import NavShell from "@/components/NavShell";
 
@@ -126,6 +126,13 @@ export default function SettingsPage() {
             <Link href="/profile" className="flex items-center justify-between py-3" style={{ borderBottom: "1px solid var(--border)" }}>
               <div className="flex items-center gap-2 text-sm font-medium">
                 <User size={16} /> Edit Profile
+              </div>
+              <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
+            </Link>
+
+            <Link href="/settings/privacy" className="flex items-center justify-between py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ShieldQuestion size={16} /> Privacy
               </div>
               <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
             </Link>
