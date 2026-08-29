@@ -2,9 +2,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Heart, MessageCircle, Share2, Bookmark, RotateCw, Plus, X, Send,
-  Loader2, Search, User as UserIcon, Camera as CameraIcon, RotateCcw,
+  Loader2, Search, User as UserIcon, Download, Trash2,
 } from "lucide-react";
 import CameraCapture from "@/components/CameraCapture";
+
+const TOPBAR_HEIGHT = 64; // matches NavShell's .vreedits-topbar height + border
 
 function Avatar({ user, size = 40 }) {
   if (user?.avatarDataUrl) {
@@ -122,15 +124,68 @@ function CommentsSheet({ postId, open, onClose }) {
   );
 }
 
+function PostActionsSheet({ post, open, isOwner, onClose, onDownload, onShare, onDelete }) {
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+          opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none",
+          transition: "opacity 0.2s ease", zIndex: 210,
+        }}
+      />
+      <div
+        style={{
+          position: "fixed", left: 0, right: 0, bottom: 0,
+          background: "var(--surface)", borderRadius: "20px 20px 0 0",
+          transform: open ? "translateY(0)" : "translateY(100%)",
+          transition: "transform 0.28s cubic-bezier(0.22,1,0.36,1)", zIndex: 211,
+          padding: 8,
+        }}
+      >
+        <button
+          onClick={() => { onDownload(post); onClose(); }}
+          className="flex items-center gap-3 w-full text-sm font-medium"
+          style={{ padding: "14px 12px", background: "none", border: "none", textAlign: "left" }}
+        >
+          <Download size={18} /> Download
+        </button>
+        <button
+          onClick={() => { onShare(post); onClose(); }}
+          className="flex items-center gap-3 w-full text-sm font-medium"
+          style={{ padding: "14px 12px", background: "none", border: "none", textAlign: "left" }}
+        >
+          <Share2 size={18} /> Share
+        </button>
+        {isOwner && (
+          <button
+            onClick={() => { onDelete(post); onClose(); }}
+            className="flex items-center gap-3 w-full text-sm font-medium"
+            style={{ padding: "14px 12px", background: "none", border: "none", textAlign: "left", color: "var(--danger)" }}
+          >
+            <Trash2 size={18} /> Delete post
+          </button>
+        )}
+        <button
+          onClick={onClose}
+          className="w-full text-sm font-medium"
+          style={{ padding: "14px 12px", background: "var(--surface-2)", border: "none", borderRadius: 12, marginTop: 6 }}
+        >
+          Cancel
+        </button>
+      </div>
+    </>
+  );
+}
+
 function CreatePostModal({ open, onClose, onCreated }) {
   const [caption, setCaption] = useState("");
-  const [media, setMedia] = useState(null); // { mediaUrl, mediaType }
+  const [media, setMedia] = useState(null);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState("");
 
-  // Open the camera automatically as soon as the "+" flow starts,
-  // matching the TikTok-style capture-first flow.
   useEffect(() => {
     if (open && !media) setCameraOpen(true);
   }, [open, media]);
@@ -224,7 +279,7 @@ function CreatePostModal({ open, onClose, onCreated }) {
                 display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600,
               }}
             >
-              <RotateCcw size={13} /> Retake
+              Retake
             </button>
           </div>
         )}
@@ -245,9 +300,29 @@ function CreatePostModal({ open, onClose, onCreated }) {
   );
 }
 
-function PostCard({ post, onLike, onSave, onShare, onOpenComments }) {
+function PostCard({ post, isOwner, onLike, onOpenComments, onLongPress }) {
+  const pressTimer = useRef(null);
+
+  function startPress() {
+    pressTimer.current = setTimeout(() => onLongPress(post), 500);
+  }
+  function cancelPress() {
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+  }
+  function handleContextMenu(e) {
+    e.preventDefault();
+    onLongPress(post);
+  }
+
   return (
     <div
+      onTouchStart={startPress}
+      onTouchEnd={cancelPress}
+      onTouchMove={cancelPress}
+      onMouseDown={startPress}
+      onMouseUp={cancelPress}
+      onMouseLeave={cancelPress}
+      onContextMenu={handleContextMenu}
       style={{
         position: "relative", height: "100%", width: "100%", flexShrink: 0,
         scrollSnapAlign: "start", display: "flex", flexDirection: "column",
@@ -306,24 +381,19 @@ function PostCard({ post, onLike, onSave, onShare, onOpenComments }) {
             <MessageCircle size={26} color="white" />
             <span className="text-xs" style={{ color: "white" }}>{post.commentCount}</span>
           </button>
-          <button onClick={() => onShare(post)} style={{ background: "none", border: "none" }} aria-label="Share">
-            <Share2 size={24} color="white" />
-          </button>
-          <button onClick={() => onSave(post)} style={{ background: "none", border: "none" }} aria-label="Save">
-            <Bookmark size={24} color="white" fill={post.savedByMe ? "white" : "none"} />
-          </button>
         </div>
       </div>
     </div>
   );
 }
 
-export default function FeedClient() {
+export default function FeedClient({ user }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [nextCursor, setNextCursor] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [commentsPost, setCommentsPost] = useState(null);
+  const [actionsPost, setActionsPost] = useState(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const scrollRef = useRef(null);
@@ -371,9 +441,15 @@ export default function FeedClient() {
     await fetch(`/api/feed/${post.id}/like`, { method: "POST" });
   }
 
-  async function handleSave(post) {
-    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, savedByMe: !p.savedByMe } : p)));
-    await fetch(`/api/feed/${post.id}/save`, { method: "POST" });
+  function handleDownload(post) {
+    if (!post.mediaUrl) return;
+    const ext = post.mediaType === "video" ? "webm" : "jpg";
+    const a = document.createElement("a");
+    a.href = post.mediaUrl;
+    a.download = `vreedits-${post.id}.${ext}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
   }
 
   async function handleShare(post) {
@@ -387,13 +463,22 @@ export default function FeedClient() {
     }
   }
 
+  async function handleDeletePost(post) {
+    const confirmed = window.confirm("Delete this post? This can't be undone.");
+    if (!confirmed) return;
+    const res = await fetch(`/api/feed/${post.id}`, { method: "DELETE" });
+    if (res.ok) {
+      setPosts((prev) => prev.filter((p) => p.id !== post.id));
+    }
+  }
+
   function handlePostCreated(newPost) {
     setPosts((prev) => [newPost, ...prev]);
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000" }}>
+    <div style={{ position: "relative", width: "100%", height: `calc(100dvh - ${TOPBAR_HEIGHT}px)`, background: "#000" }}>
       <div
         className="flex items-center justify-between px-4"
         style={{
@@ -432,10 +517,10 @@ export default function FeedClient() {
             <PostCard
               key={post.id}
               post={post}
+              isOwner={user?.id === post.author.id}
               onLike={handleLike}
-              onSave={handleSave}
-              onShare={handleShare}
               onOpenComments={setCommentsPost}
+              onLongPress={setActionsPost}
             />
           ))}
           {loadingMore && (
@@ -471,7 +556,18 @@ export default function FeedClient() {
       {commentsPost && (
         <CommentsSheet postId={commentsPost.id} open={!!commentsPost} onClose={() => setCommentsPost(null)} />
       )}
+      {actionsPost && (
+        <PostActionsSheet
+          post={actionsPost}
+          open={!!actionsPost}
+          isOwner={user?.id === actionsPost.author.id}
+          onClose={() => setActionsPost(null)}
+          onDownload={handleDownload}
+          onShare={handleShare}
+          onDelete={handleDeletePost}
+        />
+      )}
       <CreatePostModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handlePostCreated} />
     </div>
   );
-    }
+      }
