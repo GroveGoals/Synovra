@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/requireUser";
 
 const LANGUAGES = ["English", "French", "Spanish", "Arabic"];
+const MAX_BIO_LENGTH = 150;
 
 export async function GET() {
   const user = await requireUser();
@@ -13,6 +14,7 @@ export async function GET() {
       username: user.username,
       email: user.email,
       avatarDataUrl: user.avatarDataUrl,
+      bio: user.bio,
       country: user.country,
       language: user.language,
       isPublic: user.isPublic,
@@ -41,6 +43,14 @@ export async function PATCH(req) {
       }
       data.username = cleanUsername;
     }
+  }
+
+  if (typeof body.bio === "string") {
+    const cleanBio = body.bio.trim();
+    if (cleanBio.length > MAX_BIO_LENGTH) {
+      return NextResponse.json({ error: `Bio must be ${MAX_BIO_LENGTH} characters or fewer.` }, { status: 400 });
+    }
+    data.bio = cleanBio || null;
   }
 
   if (typeof body.country === "string") {
@@ -72,10 +82,11 @@ export async function PATCH(req) {
       username: updated.username,
       email: updated.email,
       avatarDataUrl: updated.avatarDataUrl,
+      bio: updated.bio,
       country: updated.country,
       language: updated.language,
       isPublic: updated.isPublic,
       online: updated.online,
     },
   });
-                                                                        }
+}
