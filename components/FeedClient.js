@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Heart, MessageCircle, Share2, Bookmark, RotateCw, Plus, X, Send,
-  Loader2, Search, User as UserIcon, Download, Trash2,
+  Loader2, Search, User as UserIcon, Download, Trash2, Music2,
 } from "lucide-react";
 import CameraCapture from "@/components/CameraCapture";
 
@@ -304,7 +304,7 @@ function CreatePostModal({ open, onClose, onCreated }) {
   );
 }
 
-function PostCard({ post, isOwner, onLike, onSave, onOpenComments, onLongPress }) {
+function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLongPress }) {
   const pressTimer = useRef(null);
 
   function startPress() {
@@ -362,13 +362,29 @@ function PostCard({ post, isOwner, onLike, onSave, onOpenComments, onLongPress }
         }}
       />
 
-      {/* Right-side action rail — Instagram Reels style: icon + count stacked, near right edge */}
+      {/* Right-side action rail — TikTok style: avatar+follow, like, comment, save, share, sound disc */}
       <div
         style={{
-          position: "absolute", right: 12, bottom: 90, zIndex: 2,
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 22,
+          position: "absolute", right: 10, bottom: 90, zIndex: 2,
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 18,
         }}
       >
+        <div style={{ position: "relative", marginBottom: 4 }}>
+          <Avatar user={post.author} size={42} />
+          <div
+            aria-hidden="true"
+            title="Follow isn't wired up yet — no follow system exists in the backend"
+            style={{
+              position: "absolute", bottom: -8, left: "50%", transform: "translateX(-50%)",
+              width: 18, height: 18, borderRadius: "50%", background: "var(--accent)",
+              color: "white", display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, fontWeight: 700, border: "2px solid #000", lineHeight: 1,
+            }}
+          >
+            +
+          </div>
+        </div>
+
         <button onClick={() => onLike(post)} aria-label="Like" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <Heart size={28} color="white" fill={post.likedByMe ? "#ff4d67" : "none"} stroke={post.likedByMe ? "#ff4d67" : "white"} />
           <span style={{ color: "white", fontSize: 12, fontWeight: 600 }}>{abbreviateCount(post.likeCount)}</span>
@@ -380,23 +396,33 @@ function PostCard({ post, isOwner, onLike, onSave, onOpenComments, onLongPress }
         <button onClick={() => onSave(post)} aria-label="Save" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <Bookmark size={26} color="white" fill={post.savedByMe ? "white" : "none"} />
         </button>
+        <button onClick={() => onShare(post)} aria-label="Share" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <Share2 size={26} color="white" />
+        </button>
+
+        {/* Decorative sound disc — purely visual, there's no real "sound" entity in the backend to attach */}
+        <div
+          style={{
+            width: 34, height: 34, borderRadius: "50%", overflow: "hidden",
+            border: "2px solid rgba(255,255,255,0.8)", marginTop: 4,
+            animation: "vreedits-spin 4s linear infinite",
+          }}
+        >
+          {post.mediaType !== "video" && post.mediaUrl ? (
+            <img src={post.mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Music2 size={14} color="var(--accent)" />
+            </div>
+          )}
+        </div>
+        <style>{`@keyframes vreedits-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
 
-      {/* Bottom-left: avatar + username + Follow, caption below */}
+      {/* Bottom-left: username, caption */}
       <div style={{ position: "absolute", left: 14, right: 90, bottom: 24, zIndex: 2 }}>
         <div className="flex items-center gap-2.5 mb-2">
-          <Avatar user={post.author} size={36} />
           <span className="text-sm font-semibold" style={{ color: "white" }}>{post.author.username}</span>
-          <button
-            aria-label="Follow"
-            title="Follow isn't wired up yet — no follow system exists in the backend"
-            style={{
-              border: "1.5px solid white", borderRadius: 6, padding: "3px 10px",
-              background: "transparent", color: "white", fontSize: 12, fontWeight: 700,
-            }}
-          >
-            Follow
-          </button>
         </div>
         {post.caption && (
           <p className="text-sm" style={{ color: "white", overflowWrap: "anywhere", lineHeight: 1.4 }}>
@@ -546,6 +572,7 @@ export default function FeedClient({ user }) {
               isOwner={user?.id === post.author.id}
               onLike={handleLike}
               onSave={handleSave}
+              onShare={handleShare}
               onOpenComments={setCommentsPost}
               onLongPress={setActionsPost}
             />
@@ -559,24 +586,24 @@ export default function FeedClient({ user }) {
       )}
 
       <div
-        className="flex items-center justify-center gap-4"
+        className="flex items-center justify-center gap-3"
         style={{ position: "absolute", bottom: 20, left: 0, right: 0, zIndex: 10 }}
       >
         <button
           onClick={handleRefresh}
           aria-label="Refresh feed"
-          className="w-11 h-11 rounded-full flex items-center justify-center"
+          className="w-9 h-9 rounded-full flex items-center justify-center"
           style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "white" }}
         >
-          <RotateCw size={18} className={refreshing ? "animate-spin" : ""} />
+          <RotateCw size={15} className={refreshing ? "animate-spin" : ""} />
         </button>
         <button
           onClick={() => setCreateOpen(true)}
           aria-label="Create post"
-          className="w-14 h-14 rounded-full flex items-center justify-center"
+          className="w-9 h-9 rounded-full flex items-center justify-center"
           style={{ background: "var(--accent)", border: "none", color: "white" }}
         >
-          <Plus size={24} />
+          <Plus size={17} />
         </button>
       </div>
 
@@ -597,4 +624,4 @@ export default function FeedClient({ user }) {
       <CreatePostModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handlePostCreated} />
     </div>
   );
-}
+    }
