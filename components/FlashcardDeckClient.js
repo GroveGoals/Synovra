@@ -138,10 +138,17 @@ export default function FlashcardDeckClient({ deckId }) {
               className="card"
               style={{
                 minHeight: 220, display: "flex", alignItems: "center", justifyContent: "center",
-                textAlign: "center", padding: 24, cursor: "pointer", marginBottom: 16,
+                textAlign: "center", padding: 24, cursor: "pointer", marginBottom: 8,
               }}
             >
-              <div>
+              <div style={{ width: "100%" }}>
+                {current.imageUrl && (
+                  <img
+                    src={current.imageUrl}
+                    alt=""
+                    style={{ width: "100%", maxHeight: 140, objectFit: "cover", borderRadius: 10, marginBottom: 14 }}
+                  />
+                )}
                 <div className="text-xs mb-3" style={{ color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5 }}>
                   {flipped ? "Answer" : "Question"}
                 </div>
@@ -154,7 +161,20 @@ export default function FlashcardDeckClient({ deckId }) {
               </div>
             </div>
 
-            <div className="flex gap-2 mb-3">
+            {current.imageUrl && current.imageCreditName && (
+              <div className="text-xs mb-4" style={{ color: "var(--text-muted)" }}>
+                Photo by{" "}
+                <a href={`${current.imageCreditUrl}?utm_source=vreedits&utm_medium=referral`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>
+                  {current.imageCreditName}
+                </a>{" "}
+                on{" "}
+                <a href="https://unsplash.com/?utm_source=vreedits&utm_medium=referral" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>
+                  Unsplash
+                </a>
+              </div>
+            )}
+
+            <div className="flex gap-2 mb-3" style={{ marginTop: current.imageUrl ? 0 : 16 }}>
               <button onClick={goPrev} disabled={index === 0} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)", flex: 1, opacity: index === 0 ? 0.5 : 1 }}>
                 Back
               </button>
