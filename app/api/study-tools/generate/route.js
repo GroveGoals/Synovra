@@ -137,22 +137,20 @@ ${hasNotes ? notes : "(see attached image(s) for source material)"}`;
     );
   }
 
-  // "Explain this" with no images of its own: try to pull in one relevant
-  // stock photo from Unsplash so the explanation isn't purely text.
-  if (toolType === "explain" && !hasImages) {
+  // No images of its own — try to pull in one relevant stock photo from
+  // Unsplash so the result isn't purely text. Applies to all tool types now.
+  if (!hasImages) {
     const query = subject?.trim() || title?.trim() || notes?.trim().slice(0, 60);
     const photo = await fetchRelevantImage(query);
     if (photo) {
       const attribution = `*Photo by [${photo.photographerName}](${photo.photographerUrl}?utm_source=vreedits&utm_medium=referral) on [Unsplash](https://unsplash.com/?utm_source=vreedits&utm_medium=referral)*`;
       resultText = `
 
-
-
 ![${query}](${photo.url})
 
-
-
 \n${attribution}\n\n${resultText}`;
+    } else {
+      console.error(`[study-tools] No fallback image found for query: "${query}"`);
     }
   }
 
