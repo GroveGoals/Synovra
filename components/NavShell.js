@@ -71,13 +71,13 @@ export default function NavShell({ children, user }) {
   }
 
   return (
-    <div>
+    <div style={{ display: "flex", flexDirection: "column", height: "100dvh" }}>
       <PresenceHeartbeat />
       <style>{`
         .vreedits-topbar {
           display: flex; align-items: center; justify-content: space-between;
           padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface);
-          position: sticky; top: 0; z-index: 30;
+          position: relative; z-index: 30; flex-shrink: 0;
         }
         .vreedits-hamburger {
           width: 42px; height: 42px; border-radius: 12px; border: 1px solid var(--border);
@@ -143,6 +143,7 @@ export default function NavShell({ children, user }) {
         .vreedits-nav-item.active { background: var(--accent-soft); color: var(--accent); }
         .vreedits-nav-item.locked { opacity: 0.4; cursor: not-allowed; }
         .vreedits-lock-badge { margin-left: auto; }
+        .vreedits-content { flex: 1; min-height: 0; overflow: hidden; }
       `}</style>
 
       <div className="vreedits-topbar">
@@ -221,7 +222,7 @@ export default function NavShell({ children, user }) {
         </div>
       </nav>
 
-      {children}
+      <div className="vreedits-content">{children}</div>
     </div>
   );
-    }
+   }
