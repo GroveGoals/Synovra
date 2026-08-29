@@ -289,6 +289,9 @@ model Flashcard {
   front  String @db.Text
   back   String @db.Text
   status String @default("new")
+  imageUrl        String? @db.Text
+  imageCreditName String?
+  imageCreditUrl  String? @db.Text
   createdAt DateTime @default(now())
 }
 
