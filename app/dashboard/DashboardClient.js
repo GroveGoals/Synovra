@@ -144,4 +144,4 @@ export default function DashboardClient({ user }) {
       </div>
     </div>
   );
-}
+    }
