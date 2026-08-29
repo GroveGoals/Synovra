@@ -11,10 +11,11 @@ export async function GET(req) {
 
   const posts = await prisma.feedPost.findMany({
     take: 10,
+    where: { isPrivate: false },
     ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     orderBy: { createdAt: "desc" },
     include: {
-      author: { select: { id: true, username: true, avatarDataUrl: true } },
+      author: { select: { id: true, username: true, avatarDataUrl: true, allowDownloads: true } },
       _count: { select: { comments: true } },
       saves: { where: { userId: user.id }, select: { id: true } },
     },
@@ -56,7 +57,7 @@ export async function POST(req) {
       mediaType: mediaType === "video" ? "video" : "image",
     },
     include: {
-      author: { select: { id: true, username: true, avatarDataUrl: true } },
+      author: { select: { id: true, username: true, avatarDataUrl: true, allowDownloads: true } },
     },
   });
 
@@ -75,4 +76,4 @@ export async function POST(req) {
       savedByMe: false,
     },
   });
-    }
+}
