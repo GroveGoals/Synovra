@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, Plus, Loader2, Layers, Trash2, AlertCircle,
-  Sparkles, FileText, X, ChevronLeft, Clock,
+  Sparkles, FileText, X, ChevronLeft, Clock, RefreshCw,
 } from "lucide-react";
 import { extractNoteContent } from "@/lib/blocks";
 
@@ -49,6 +49,7 @@ function FlashcardsClientInner() {
 
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,10 +64,17 @@ function FlashcardsClientInner() {
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
+    setHistoryError("");
     try {
-      const res = await fetch("/api/study-tools");
+      const res = await fetch("/api/study-tools", { cache: "no-store" });
       const data = await res.json();
-      if (res.ok) setHistory(data.runs || []);
+      if (res.ok) {
+        setHistory(data.runs || []);
+      } else {
+        setHistoryError(data.error || "Could not load recent study materials.");
+      }
+    } catch {
+      setHistoryError("Network error loading recent study materials.");
     } finally {
       setHistoryLoading(false);
     }
@@ -74,6 +82,14 @@ function FlashcardsClientInner() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadHistory(); }, [loadHistory]);
+
+  // Refetch whenever the tab regains focus — covers the case where a
+  // result was generated in another tab/view and this list went stale.
+  useEffect(() => {
+    function handleFocus() { loadHistory(); }
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
+  }, [loadHistory]);
 
   const openPicker = useCallback(async (preselectNoteId) => {
     setPickerOpen(true);
@@ -307,15 +323,30 @@ function FlashcardsClientInner() {
           </div>
         )}
 
-        <div className="flex items-center gap-2 mb-2">
-          <Clock size={14} style={{ color: "var(--text-muted)" }} />
-          <h2 className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>Recent Study Materials</h2>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Clock size={14} style={{ color: "var(--text-muted)" }} />
+            <h2 className="text-sm font-semibold" style={{ color: "var(--text-muted)" }}>Recent Study Materials</h2>
+          </div>
+          <button
+            onClick={loadHistory}
+            aria-label="Refresh"
+            disabled={historyLoading}
+            style={{ color: "var(--text-muted)", background: "none", border: "none" }}
+          >
+            <RefreshCw size={13} className={historyLoading ? "animate-spin" : ""} />
+          </button>
         </div>
+
+        {historyError && (
+          <div className="alert alert-error mb-2"><AlertCircle size={14} />{historyError}</div>
+        )}
+
         {historyLoading ? (
           <div className="flex justify-center py-6" style={{ color: "var(--text-muted)" }}>
             <Loader2 size={18} className="animate-spin" />
           </div>
-        ) : history.length === 0 ? (
+        ) : history.length === 0 && !historyError ? (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             Quizzes, summaries, and other generated materials will show up here.
           </p>
@@ -348,3 +379,4 @@ export default function FlashcardsClient() {
     </Suspense>
   );
 }
+
