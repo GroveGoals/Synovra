@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { Check, X, RotateCcw } from "lucide-react";
 
+const LETTERS = ["A", "B", "C", "D"];
+
 export default function QuizTaker({ questions, coverImage }) {
   const [answers, setAnswers] = useState(() => Array(questions.length).fill(null));
   const [submitted, setSubmitted] = useState(false);
@@ -74,11 +76,11 @@ export default function QuizTaker({ questions, coverImage }) {
                 <span className="text-sm font-semibold" style={{ color: "var(--text-muted)", flexShrink: 0 }}>
                   {qIndex + 1}.
                 </span>
-                <span className="text-sm font-medium">{q.question}</span>
+                <span className="text-sm font-medium" style={{ flex: 1 }}>{q.question}</span>
                 {submitted && (
                   selected === q.correctIndex
-                    ? <Check size={15} style={{ color: "var(--success, #4ade80)", flexShrink: 0, marginLeft: "auto" }} />
-                    : <X size={15} style={{ color: "var(--danger, #e55)", flexShrink: 0, marginLeft: "auto" }} />
+                    ? <Check size={15} style={{ color: "var(--success, #4ade80)", flexShrink: 0 }} />
+                    : <X size={15} style={{ color: "var(--danger, #e55)", flexShrink: 0 }} />
                 )}
               </div>
               <div className="space-y-1.5 pl-5">
@@ -96,10 +98,11 @@ export default function QuizTaker({ questions, coverImage }) {
                       key={optIndex}
                       onClick={() => selectAnswer(qIndex, optIndex)}
                       disabled={submitted}
-                      className="flex items-center w-full p-2 rounded-lg text-sm"
+                      className="flex items-center gap-2 w-full p-2 rounded-lg text-sm"
                       style={{ textAlign: "left", border: "none", ...style }}
                     >
-                      {opt}
+                      <span style={{ fontWeight: 700, opacity: 0.7, flexShrink: 0 }}>{LETTERS[optIndex]})</span>
+                      <span>{opt}</span>
                     </button>
                   );
                 })}
@@ -124,4 +127,3 @@ export default function QuizTaker({ questions, coverImage }) {
     </div>
   );
 }
-
