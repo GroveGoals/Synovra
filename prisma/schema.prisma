@@ -41,6 +41,9 @@ model User {
   notes          Note[]
   folders        Folder[]
   studySessions  StudySession[]
+  feedPosts      FeedPost[]
+  feedComments   FeedComment[]
+  feedSaves      FeedSave[]
 }
 
 model Conversation {
@@ -325,4 +328,38 @@ model StudySession {
   minutes Int
   note    String?
   createdAt DateTime @default(now())
+}
+
+model FeedPost {
+  id       String @id @default(uuid())
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  caption   String? @db.Text
+  mediaUrl  String? @db.Text
+  mediaType String  @default("image")
+  likedBy   String[] @default([])
+  createdAt DateTime @default(now())
+  comments  FeedComment[]
+  saves     FeedSave[]
+}
+
+model FeedComment {
+  id     String   @id @default(uuid())
+  postId String
+  post   FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content String @db.Text
+  createdAt DateTime @default(now())
+}
+
+model FeedSave {
+  id     String   @id @default(uuid())
+  postId String
+  post   FeedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
 }
