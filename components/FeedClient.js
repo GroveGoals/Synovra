@@ -1,10 +1,8 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
 import {
   Heart, MessageCircle, Share2, Bookmark, RotateCw, Plus, X, Send,
-  Loader2, Search, User as UserIcon, Download, Trash2, Music2,
+  Loader2, Search, User as UserIcon, Download, Trash2, Play, Pause,
 } from "lucide-react";
 import CameraCapture from "@/components/CameraCapture";
 
@@ -12,6 +10,13 @@ function abbreviateCount(n) {
   if (n < 1000) return `${n}`;
   if (n < 1_000_000) return `${(n / 1000).toFixed(n % 1000 >= 100 ? 1 : 0)}K`;
   return `${(n / 1_000_000).toFixed(1)}M`;
+}
+
+function formatTime(seconds) {
+  if (!isFinite(seconds) || seconds < 0) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 function Avatar({ user, size = 40 }) {
@@ -28,6 +33,119 @@ function Avatar({ user, size = 40 }) {
       }}
     >
       {user?.username?.slice(0, 2).toUpperCase() || "?"}
+    </div>
+  );
+}
+
+function VideoPlayer({ src, onSingleTap }) {
+  const videoRef = useRef(null);
+  const barRef = useRef(null);
+  const [playing, setPlaying] = useState(true);
+  const [showIcon, setShowIcon] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [seeking, setSeeking] = useState(false);
+
+  function togglePlay() {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) {
+      v.play();
+      setPlaying(true);
+    } else {
+      v.pause();
+      setPlaying(false);
+    }
+    setShowIcon(true);
+    setTimeout(() => setShowIcon(false), 400);
+  }
+
+  function handleTap() {
+    if (onSingleTap && onSingleTap()) return; // suppressed (a long-press just fired)
+    togglePlay();
+  }
+
+  function seekFromClientX(clientX) {
+    const bar = barRef.current;
+    const v = videoRef.current;
+    if (!bar || !v || !duration) return;
+    const rect = bar.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    v.currentTime = ratio * duration;
+    setCurrent(ratio * duration);
+  }
+
+  function handleBarPointerDown(e) {
+    e.stopPropagation();
+    setSeeking(true);
+    seekFromClientX(e.clientX);
+    e.target.setPointerCapture?.(e.pointerId);
+  }
+  function handleBarPointerMove(e) {
+    if (!seeking) return;
+    e.stopPropagation();
+    seekFromClientX(e.clientX);
+  }
+  function handleBarPointerUp(e) {
+    e.stopPropagation();
+    setSeeking(false);
+  }
+
+  const progressPct = duration ? (current / duration) * 100 : 0;
+
+  return (
+    <div style={{ position: "absolute", inset: 0 }} onClick={handleTap}>
+      <video
+        ref={videoRef}
+        src={src}
+        autoPlay
+        loop
+        muted
+        playsInline
+        onTimeUpdate={(e) => !seeking && setCurrent(e.target.currentTime)}
+        onLoadedMetadata={(e) => setDuration(e.target.duration)}
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      />
+
+      {showIcon && (
+        <div style={{
+          position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+          background: "rgba(0,0,0,0.5)", borderRadius: "50%", width: 64, height: 64,
+          display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none",
+        }}>
+          {playing ? <Play size={30} color="white" fill="white" /> : <Pause size={30} color="white" fill="white" />}
+        </div>
+      )}
+
+      {/* Seek bar + time/duration — tap-and-drag to fast-forward or rewind */}
+      <div
+        style={{ position: "absolute", left: 12, right: 12, bottom: 10, zIndex: 3 }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-1">
+          <span style={{ color: "white", fontSize: 11, fontWeight: 600, textShadow: "0 1px 2px rgba(0,0,0,0.5)" }}>
+            {formatTime(current)} / {formatTime(duration)}
+          </span>
+        </div>
+        <div
+          ref={barRef}
+          onPointerDown={handleBarPointerDown}
+          onPointerMove={handleBarPointerMove}
+          onPointerUp={handleBarPointerUp}
+          style={{
+            height: 14, display: "flex", alignItems: "center", cursor: "pointer",
+            touchAction: "none",
+          }}
+        >
+          <div style={{ position: "relative", width: "100%", height: 3, background: "rgba(255,255,255,0.3)", borderRadius: 2 }}>
+            <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${progressPct}%`, background: "white", borderRadius: 2 }} />
+            <div style={{
+              position: "absolute", top: "50%", left: `${progressPct}%`, transform: "translate(-50%, -50%)",
+              width: 11, height: 11, borderRadius: "50%", background: "white",
+            }} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -130,7 +248,7 @@ function CommentsSheet({ postId, open, onClose }) {
   );
 }
 
-function PostActionsSheet({ post, open, isOwner, onClose, onDownload, onShare, onDelete }) {
+function PostActionsSheet({ post, open, isOwner, canDownload, onClose, onDownload, onShare, onDelete }) {
   return (
     <>
       <div
@@ -150,13 +268,15 @@ function PostActionsSheet({ post, open, isOwner, onClose, onDownload, onShare, o
           padding: 8,
         }}
       >
-        <button
-          onClick={() => { onDownload(post); onClose(); }}
-          className="flex items-center gap-3 w-full text-sm font-medium"
-          style={{ padding: "14px 12px", background: "none", border: "none", textAlign: "left" }}
-        >
-          <Download size={18} /> Download
-        </button>
+        {canDownload && (
+          <button
+            onClick={() => { onDownload(post); onClose(); }}
+            className="flex items-center gap-3 w-full text-sm font-medium"
+            style={{ padding: "14px 12px", background: "none", border: "none", textAlign: "left" }}
+          >
+            <Download size={18} /> Download
+          </button>
+        )}
         <button
           onClick={() => { onShare(post); onClose(); }}
           className="flex items-center gap-3 w-full text-sm font-medium"
@@ -306,11 +426,16 @@ function CreatePostModal({ open, onClose, onCreated }) {
   );
 }
 
-function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLongPress, onOpenProfile }) {
+function PostCard({ post, isOwner, onLike, onSave, onOpenComments, onLongPress }) {
   const pressTimer = useRef(null);
+  const longPressFiredRef = useRef(false);
 
   function startPress() {
-    pressTimer.current = setTimeout(() => onLongPress(post), 500);
+    longPressFiredRef.current = false;
+    pressTimer.current = setTimeout(() => {
+      longPressFiredRef.current = true;
+      onLongPress(post);
+    }, 500);
   }
   function cancelPress() {
     if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -318,6 +443,10 @@ function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLo
   function handleContextMenu(e) {
     e.preventDefault();
     onLongPress(post);
+  }
+  function checkSuppressTap() {
+    // returns true if a long-press just fired, so the video's tap-to-pause should be skipped
+    return longPressFiredRef.current;
   }
 
   return (
@@ -335,14 +464,7 @@ function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLo
       }}
     >
       {post.mediaType === "video" && post.mediaUrl ? (
-        <video
-          src={post.mediaUrl}
-          autoPlay
-          loop
-          muted
-          playsInline
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-        />
+        <VideoPlayer src={post.mediaUrl} onSingleTap={checkSuppressTap} />
       ) : post.mediaUrl ? (
         <img
           src={post.mediaUrl}
@@ -361,36 +483,16 @@ function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLo
         style={{
           position: "absolute", inset: 0,
           background: "linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0) 40%)",
+          pointerEvents: "none",
         }}
       />
 
-      {/* Right-side action rail — TikTok style: avatar+follow, like, comment, save, share, sound disc */}
       <div
         style={{
-          position: "absolute", right: 10, bottom: 90, zIndex: 2,
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 18,
+          position: "absolute", right: 12, bottom: 90, zIndex: 2,
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 22,
         }}
       >
-        <button
-          onClick={() => onOpenProfile(post.author.id)}
-          aria-label={`View ${post.author.username}'s profile`}
-          style={{ position: "relative", marginBottom: 4, background: "none", border: "none", padding: 0 }}
-        >
-          <Avatar user={post.author} size={42} />
-          <div
-            aria-hidden="true"
-            title="Follow isn't wired up yet — no follow system exists in the backend"
-            style={{
-              position: "absolute", bottom: -8, left: "50%", transform: "translateX(-50%)",
-              width: 18, height: 18, borderRadius: "50%", background: "var(--accent)",
-              color: "white", display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 13, fontWeight: 700, border: "2px solid #000", lineHeight: 1,
-            }}
-          >
-            +
-          </div>
-        </button>
-
         <button onClick={() => onLike(post)} aria-label="Like" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <Heart size={28} color="white" fill={post.likedByMe ? "#ff4d67" : "none"} stroke={post.likedByMe ? "#ff4d67" : "white"} />
           <span style={{ color: "white", fontSize: 12, fontWeight: 600 }}>{abbreviateCount(post.likeCount)}</span>
@@ -402,38 +504,23 @@ function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLo
         <button onClick={() => onSave(post)} aria-label="Save" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <Bookmark size={26} color="white" fill={post.savedByMe ? "white" : "none"} />
         </button>
-        <button onClick={() => onShare(post)} aria-label="Share" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-          <Share2 size={26} color="white" />
-        </button>
-
-        {/* Decorative sound disc — purely visual, there's no real "sound" entity in the backend to attach */}
-        <div
-          style={{
-            width: 34, height: 34, borderRadius: "50%", overflow: "hidden",
-            border: "2px solid rgba(255,255,255,0.8)", marginTop: 4,
-            animation: "vreedits-spin 4s linear infinite",
-          }}
-        >
-          {post.mediaType !== "video" && post.mediaUrl ? (
-            <img src={post.mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          ) : (
-            <div style={{ width: "100%", height: "100%", background: "var(--accent-soft)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Music2 size={14} color="var(--accent)" />
-            </div>
-          )}
-        </div>
-        <style>{`@keyframes vreedits-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
 
-      {/* Bottom-left: username (clickable), caption */}
-      <div style={{ position: "absolute", left: 14, right: 90, bottom: 40, zIndex: 2 }}>
-        <button
-          onClick={() => onOpenProfile(post.author.id)}
-          className="flex items-center gap-2.5 mb-2"
-          style={{ background: "none", border: "none", padding: 0 }}
-        >
+      <div style={{ position: "absolute", left: 14, right: 90, bottom: post.mediaType === "video" ? 52 : 24, zIndex: 2 }}>
+        <div className="flex items-center gap-2.5 mb-2">
+          <Avatar user={post.author} size={36} />
           <span className="text-sm font-semibold" style={{ color: "white" }}>{post.author.username}</span>
-        </button>
+          <button
+            aria-label="Follow"
+            title="Follow isn't wired up yet — no follow system exists in the backend"
+            style={{
+              border: "1.5px solid white", borderRadius: 6, padding: "3px 10px",
+              background: "transparent", color: "white", fontSize: 12, fontWeight: 700,
+            }}
+          >
+            Follow
+          </button>
+        </div>
         {post.caption && (
           <p className="text-sm" style={{ color: "white", overflowWrap: "anywhere", lineHeight: 1.4 }}>
             {post.caption}
@@ -445,7 +532,6 @@ function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLo
 }
 
 export default function FeedClient({ user }) {
-  const router = useRouter();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [nextCursor, setNextCursor] = useState(null);
@@ -540,10 +626,6 @@ export default function FeedClient({ user }) {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function handleOpenProfile(userId) {
-    router.push(`/profile/${userId}`);
-  }
-
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", background: "#000" }}>
       <div
@@ -553,9 +635,9 @@ export default function FeedClient({ user }) {
           background: "linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0))",
         }}
       >
-        <Link href="/profile" aria-label="My Profile" style={{ background: "none", border: "none", color: "white" }}>
+        <button aria-label="Profile" style={{ background: "none", border: "none", color: "white" }}>
           <UserIcon size={22} />
-        </Link>
+        </button>
         <button aria-label="Search" style={{ background: "none", border: "none", color: "white" }}>
           <Search size={22} />
         </button>
@@ -587,10 +669,8 @@ export default function FeedClient({ user }) {
               isOwner={user?.id === post.author.id}
               onLike={handleLike}
               onSave={handleSave}
-              onShare={handleShare}
               onOpenComments={setCommentsPost}
               onLongPress={setActionsPost}
-              onOpenProfile={handleOpenProfile}
             />
           ))}
           {loadingMore && (
@@ -602,24 +682,24 @@ export default function FeedClient({ user }) {
       )}
 
       <div
-        className="flex items-center justify-center gap-3"
+        className="flex items-center justify-center gap-4"
         style={{ position: "absolute", bottom: 20, left: 0, right: 0, zIndex: 10 }}
       >
         <button
           onClick={handleRefresh}
           aria-label="Refresh feed"
-          className="flex items-center justify-center"
-          style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "none", color: "white" }}
+          className="w-11 h-11 rounded-full flex items-center justify-center"
+          style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "white" }}
         >
-          <RotateCw size={15} className={refreshing ? "animate-spin" : ""} />
+          <RotateCw size={18} className={refreshing ? "animate-spin" : ""} />
         </button>
         <button
           onClick={() => setCreateOpen(true)}
           aria-label="Create post"
-          className="flex items-center justify-center"
-          style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent)", border: "none", color: "white" }}
+          className="w-14 h-14 rounded-full flex items-center justify-center"
+          style={{ background: "var(--accent)", border: "none", color: "white" }}
         >
-          <Plus size={17} />
+          <Plus size={24} />
         </button>
       </div>
 
@@ -631,6 +711,7 @@ export default function FeedClient({ user }) {
           post={actionsPost}
           open={!!actionsPost}
           isOwner={user?.id === actionsPost.author.id}
+          canDownload={user?.id === actionsPost.author.id || actionsPost.author.allowDownloads !== false}
           onClose={() => setActionsPost(null)}
           onDownload={handleDownload}
           onShare={handleShare}
