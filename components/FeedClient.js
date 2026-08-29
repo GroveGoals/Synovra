@@ -6,7 +6,11 @@ import {
 } from "lucide-react";
 import CameraCapture from "@/components/CameraCapture";
 
-const TOPBAR_HEIGHT = 64; // matches NavShell's .vreedits-topbar height + border
+function abbreviateCount(n) {
+  if (n < 1000) return `${n}`;
+  if (n < 1_000_000) return `${(n / 1000).toFixed(n % 1000 >= 100 ? 1 : 0)}K`;
+  return `${(n / 1_000_000).toFixed(1)}M`;
+}
 
 function Avatar({ user, size = 40 }) {
   if (user?.avatarDataUrl) {
@@ -300,7 +304,7 @@ function CreatePostModal({ open, onClose, onCreated }) {
   );
 }
 
-function PostCard({ post, isOwner, onLike, onOpenComments, onLongPress }) {
+function PostCard({ post, isOwner, onLike, onSave, onOpenComments, onLongPress }) {
   const pressTimer = useRef(null);
 
   function startPress() {
@@ -325,8 +329,7 @@ function PostCard({ post, isOwner, onLike, onOpenComments, onLongPress }) {
       onContextMenu={handleContextMenu}
       style={{
         position: "relative", height: "100%", width: "100%", flexShrink: 0,
-        scrollSnapAlign: "start", display: "flex", flexDirection: "column",
-        justifyContent: "flex-end", overflow: "hidden", background: "#000",
+        scrollSnapAlign: "start", overflow: "hidden", background: "#000",
       }}
     >
       {post.mediaType === "video" && post.mediaUrl ? (
@@ -336,13 +339,13 @@ function PostCard({ post, isOwner, onLike, onOpenComments, onLongPress }) {
           loop
           muted
           playsInline
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       ) : post.mediaUrl ? (
         <img
           src={post.mediaUrl}
           alt=""
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
+          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" }}
         />
       ) : (
         <div
@@ -355,33 +358,51 @@ function PostCard({ post, isOwner, onLike, onOpenComments, onLongPress }) {
       <div
         style={{
           position: "absolute", inset: 0,
-          background: "linear-gradient(to top, rgba(0,0,0,0.65), rgba(0,0,0,0) 45%)",
+          background: "linear-gradient(to top, rgba(0,0,0,0.7), rgba(0,0,0,0) 40%)",
         }}
       />
 
-      <div className="flex items-end justify-between p-4" style={{ position: "relative", zIndex: 1 }}>
-        <div style={{ maxWidth: "78%" }}>
-          <div className="flex items-center gap-2 mb-2">
-            <Avatar user={post.author} size={34} />
-            <span className="text-sm font-semibold" style={{ color: "white" }}>{post.author.username}</span>
-          </div>
-          {post.caption && (
-            <p className="text-sm" style={{ color: "white", overflowWrap: "anywhere", lineHeight: 1.4 }}>
-              {post.caption}
-            </p>
-          )}
-        </div>
+      {/* Right-side action rail — Instagram Reels style: icon + count stacked, near right edge */}
+      <div
+        style={{
+          position: "absolute", right: 12, bottom: 90, zIndex: 2,
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 22,
+        }}
+      >
+        <button onClick={() => onLike(post)} aria-label="Like" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <Heart size={28} color="white" fill={post.likedByMe ? "#ff4d67" : "none"} stroke={post.likedByMe ? "#ff4d67" : "white"} />
+          <span style={{ color: "white", fontSize: 12, fontWeight: 600 }}>{abbreviateCount(post.likeCount)}</span>
+        </button>
+        <button onClick={() => onOpenComments(post)} aria-label="Comments" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <MessageCircle size={28} color="white" />
+          <span style={{ color: "white", fontSize: 12, fontWeight: 600 }}>{abbreviateCount(post.commentCount)}</span>
+        </button>
+        <button onClick={() => onSave(post)} aria-label="Save" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+          <Bookmark size={26} color="white" fill={post.savedByMe ? "white" : "none"} />
+        </button>
+      </div>
 
-        <div className="flex flex-col items-center gap-4">
-          <button onClick={() => onLike(post)} className="flex flex-col items-center gap-1" style={{ background: "none", border: "none" }} aria-label="Like">
-            <Heart size={26} color="white" fill={post.likedByMe ? "#ff4d67" : "none"} stroke={post.likedByMe ? "#ff4d67" : "white"} />
-            <span className="text-xs" style={{ color: "white" }}>{post.likeCount}</span>
-          </button>
-          <button onClick={() => onOpenComments(post)} className="flex flex-col items-center gap-1" style={{ background: "none", border: "none" }} aria-label="Comments">
-            <MessageCircle size={26} color="white" />
-            <span className="text-xs" style={{ color: "white" }}>{post.commentCount}</span>
+      {/* Bottom-left: avatar + username + Follow, caption below */}
+      <div style={{ position: "absolute", left: 14, right: 90, bottom: 24, zIndex: 2 }}>
+        <div className="flex items-center gap-2.5 mb-2">
+          <Avatar user={post.author} size={36} />
+          <span className="text-sm font-semibold" style={{ color: "white" }}>{post.author.username}</span>
+          <button
+            aria-label="Follow"
+            title="Follow isn't wired up yet — no follow system exists in the backend"
+            style={{
+              border: "1.5px solid white", borderRadius: 6, padding: "3px 10px",
+              background: "transparent", color: "white", fontSize: 12, fontWeight: 700,
+            }}
+          >
+            Follow
           </button>
         </div>
+        {post.caption && (
+          <p className="text-sm" style={{ color: "white", overflowWrap: "anywhere", lineHeight: 1.4 }}>
+            {post.caption}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -441,6 +462,11 @@ export default function FeedClient({ user }) {
     await fetch(`/api/feed/${post.id}/like`, { method: "POST" });
   }
 
+  async function handleSave(post) {
+    setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, savedByMe: !p.savedByMe } : p)));
+    await fetch(`/api/feed/${post.id}/save`, { method: "POST" });
+  }
+
   function handleDownload(post) {
     if (!post.mediaUrl) return;
     const ext = post.mediaType === "video" ? "webm" : "jpg";
@@ -478,7 +504,7 @@ export default function FeedClient({ user }) {
   }
 
   return (
-    <div style={{ position: "relative", width: "100%", height: `calc(100dvh - ${TOPBAR_HEIGHT}px)`, background: "#000" }}>
+    <div style={{ position: "relative", width: "100%", height: "100%", background: "#000" }}>
       <div
         className="flex items-center justify-between px-4"
         style={{
@@ -519,6 +545,7 @@ export default function FeedClient({ user }) {
               post={post}
               isOwner={user?.id === post.author.id}
               onLike={handleLike}
+              onSave={handleSave}
               onOpenComments={setCommentsPost}
               onLongPress={setActionsPost}
             />
@@ -570,4 +597,4 @@ export default function FeedClient({ user }) {
       <CreatePostModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handlePostCreated} />
     </div>
   );
-      }
+}
