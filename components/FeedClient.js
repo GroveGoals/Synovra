@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Heart, MessageCircle, Share2, Bookmark, RotateCw, Plus, X, Send,
   Loader2, Search, User as UserIcon, Download, Trash2, Music2,
@@ -304,7 +305,7 @@ function CreatePostModal({ open, onClose, onCreated }) {
   );
 }
 
-function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLongPress }) {
+function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLongPress, onOpenProfile }) {
   const pressTimer = useRef(null);
 
   function startPress() {
@@ -369,7 +370,11 @@ function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLo
           display: "flex", flexDirection: "column", alignItems: "center", gap: 18,
         }}
       >
-        <div style={{ position: "relative", marginBottom: 4 }}>
+        <button
+          onClick={() => onOpenProfile(post.author.id)}
+          aria-label={`View ${post.author.username}'s profile`}
+          style={{ position: "relative", marginBottom: 4, background: "none", border: "none", padding: 0 }}
+        >
           <Avatar user={post.author} size={42} />
           <div
             aria-hidden="true"
@@ -383,7 +388,7 @@ function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLo
           >
             +
           </div>
-        </div>
+        </button>
 
         <button onClick={() => onLike(post)} aria-label="Like" style={{ background: "none", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <Heart size={28} color="white" fill={post.likedByMe ? "#ff4d67" : "none"} stroke={post.likedByMe ? "#ff4d67" : "white"} />
@@ -419,11 +424,15 @@ function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLo
         <style>{`@keyframes vreedits-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
       </div>
 
-      {/* Bottom-left: username, caption */}
-      <div style={{ position: "absolute", left: 14, right: 90, bottom: 24, zIndex: 2 }}>
-        <div className="flex items-center gap-2.5 mb-2">
+      {/* Bottom-left: username (clickable), caption */}
+      <div style={{ position: "absolute", left: 14, right: 90, bottom: 40, zIndex: 2 }}>
+        <button
+          onClick={() => onOpenProfile(post.author.id)}
+          className="flex items-center gap-2.5 mb-2"
+          style={{ background: "none", border: "none", padding: 0 }}
+        >
           <span className="text-sm font-semibold" style={{ color: "white" }}>{post.author.username}</span>
-        </div>
+        </button>
         {post.caption && (
           <p className="text-sm" style={{ color: "white", overflowWrap: "anywhere", lineHeight: 1.4 }}>
             {post.caption}
@@ -435,6 +444,7 @@ function PostCard({ post, isOwner, onLike, onSave, onShare, onOpenComments, onLo
 }
 
 export default function FeedClient({ user }) {
+  const router = useRouter();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [nextCursor, setNextCursor] = useState(null);
@@ -529,6 +539,10 @@ export default function FeedClient({ user }) {
     scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  function handleOpenProfile(userId) {
+    router.push(`/profile/${userId}`);
+  }
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", background: "#000" }}>
       <div
@@ -575,6 +589,7 @@ export default function FeedClient({ user }) {
               onShare={handleShare}
               onOpenComments={setCommentsPost}
               onLongPress={setActionsPost}
+              onOpenProfile={handleOpenProfile}
             />
           ))}
           {loadingMore && (
@@ -592,16 +607,16 @@ export default function FeedClient({ user }) {
         <button
           onClick={handleRefresh}
           aria-label="Refresh feed"
-          className="w-9 h-9 rounded-full flex items-center justify-center"
-          style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "white" }}
+          className="flex items-center justify-center"
+          style={{ width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "none", color: "white" }}
         >
           <RotateCw size={15} className={refreshing ? "animate-spin" : ""} />
         </button>
         <button
           onClick={() => setCreateOpen(true)}
           aria-label="Create post"
-          className="w-9 h-9 rounded-full flex items-center justify-center"
-          style={{ background: "var(--accent)", border: "none", color: "white" }}
+          className="flex items-center justify-center"
+          style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent)", border: "none", color: "white" }}
         >
           <Plus size={17} />
         </button>
@@ -624,4 +639,5 @@ export default function FeedClient({ user }) {
       <CreatePostModal open={createOpen} onClose={() => setCreateOpen(false)} onCreated={handlePostCreated} />
     </div>
   );
-    }
+}
+
