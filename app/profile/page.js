@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { User, Loader2, AlertCircle, CheckCircle2, Camera, Trash2, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { User, Loader2, AlertCircle, CheckCircle2, Camera, Trash2, RefreshCw, Settings } from "lucide-react";
 import NavShell from "@/components/NavShell";
 import AvatarCropper from "@/components/AvatarCropper";
 
@@ -186,9 +187,14 @@ export default function ProfilePage() {
       )}
       <div className="min-h-screen flex flex-col items-center px-4 pb-16">
         <div className="w-full max-w-[420px] card p-7 mt-10">
-          <h1 className="text-xl font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>
-            My Profile
-          </h1>
+          <div className="flex items-center justify-between mb-1">
+            <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+              My Profile
+            </h1>
+            <Link href="/settings" aria-label="Settings" style={{ color: "var(--text-muted)" }}>
+              <Settings size={20} />
+            </Link>
+          </div>
           <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
             {profile?.email}
           </p>
