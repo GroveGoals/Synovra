@@ -15,6 +15,7 @@ export async function GET() {
       email: user.email,
       avatarDataUrl: user.avatarDataUrl,
       bio: user.bio,
+      allowDownloads: user.allowDownloads,
       country: user.country,
       language: user.language,
       isPublic: user.isPublic,
@@ -53,6 +54,10 @@ export async function PATCH(req) {
     data.bio = cleanBio || null;
   }
 
+  if (typeof body.allowDownloads === "boolean") {
+    data.allowDownloads = body.allowDownloads;
+  }
+
   if (typeof body.country === "string") {
     data.country = body.country.trim() || null;
   }
@@ -83,6 +88,7 @@ export async function PATCH(req) {
       email: updated.email,
       avatarDataUrl: updated.avatarDataUrl,
       bio: updated.bio,
+      allowDownloads: updated.allowDownloads,
       country: updated.country,
       language: updated.language,
       isPublic: updated.isPublic,
