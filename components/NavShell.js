@@ -146,7 +146,7 @@ export default function NavShell({ children, user }) {
       `}</style>
 
       <div className="vreedits-topbar">
-        <button ref={hamburgerRef} className="synovra-hamburger" onClick={() => setMenuOpen((v) => !v)} aria-label="Open menu">
+        <button ref={hamburgerRef} className="vreedits-hamburger" onClick={() => setMenuOpen((v) => !v)} aria-label="Open menu">
           <Menu size={20} />
         </button>
         <span className="vreedits-brand">Vreedits</span>
