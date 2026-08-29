@@ -3,6 +3,21 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Star, AlertCircle } from "lucide-react";
 import MarkdownText from "@/components/MarkdownText";
+import QuizTaker from "@/components/QuizTaker";
+
+function parseQuiz(resultText) {
+  try {
+    const parsed = JSON.parse(resultText);
+    if (parsed?.type === "quiz" && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
+      return parsed;
+    }
+  } catch {
+    // Not JSON — this is a markdown-based tool result (summary, key points,
+    // revision questions, explain, or a quiz generated before this format
+    // existed). Fall through to markdown rendering.
+  }
+  return null;
+}
 
 export default function StudyToolResultClient({ runId }) {
   const router = useRouter();
@@ -39,6 +54,8 @@ export default function StudyToolResultClient({ runId }) {
     return <div className="flex justify-center py-16" style={{ color: "var(--text-muted)" }}><Loader2 size={22} className="animate-spin" /></div>;
   }
 
+  const quiz = run && !error ? parseQuiz(run.result) : null;
+
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pb-16">
       <div className="w-full max-w-[560px] mt-10">
@@ -59,9 +76,14 @@ export default function StudyToolResultClient({ runId }) {
               </button>
             </div>
             <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{run.inputSummary}</p>
-            <div className="card p-4">
-              <MarkdownText text={run.result} />
-            </div>
+
+            {quiz ? (
+              <QuizTaker questions={quiz.questions} coverImage={quiz.coverImage} />
+            ) : (
+              <div className="card p-4" style={{ overflowWrap: "anywhere" }}>
+                <MarkdownText text={run.result} />
+              </div>
+            )}
           </>
         )}
       </div>
