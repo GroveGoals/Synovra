@@ -16,6 +16,7 @@ model User {
   online       Boolean @default(false)
   lastSeenAt   DateTime?
   avatarDataUrl String?  @db.Text
+  bio           String?  @db.Text
   country       String?
   language      String   @default("English")
   isPublic      Boolean  @default(true)
@@ -44,6 +45,19 @@ model User {
   feedPosts      FeedPost[]
   feedComments   FeedComment[]
   feedSaves      FeedSave[]
+  followers Follow[] @relation("Followers")
+  following Follow[] @relation("Following")
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  follower    User     @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  followingId String
+  following   User     @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId])
 }
 
 model Conversation {
@@ -340,6 +354,7 @@ model FeedPost {
   caption   String? @db.Text
   mediaUrl  String? @db.Text
   mediaType String  @default("image")
+  isPrivate Boolean @default(false)
   likedBy   String[] @default([])
   createdAt DateTime @default(now())
   comments  FeedComment[]
