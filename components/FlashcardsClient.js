@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft, Plus, Loader2, Layers, Trash2, AlertCircle,
-  Sparkles, FileText, X, ChevronLeft, Clock, RefreshCw,
+  Sparkles, FileText, X, ChevronLeft, Clock, RefreshCw, Star,
 } from "lucide-react";
 import { extractNoteContent } from "@/lib/blocks";
 
@@ -26,6 +26,13 @@ function relativeTime(dateStr) {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function sortHistory(runs) {
+  return [...runs].sort((a, b) => {
+    if (a.favorited !== b.favorited) return a.favorited ? -1 : 1;
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
 }
 
 function FlashcardsClientInner() {
@@ -50,6 +57,7 @@ function FlashcardsClientInner() {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState("");
+  const [pendingActionId, setPendingActionId] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,7 +77,7 @@ function FlashcardsClientInner() {
       const res = await fetch("/api/study-tools", { cache: "no-store" });
       const data = await res.json();
       if (res.ok) {
-        setHistory(data.runs || []);
+        setHistory(sortHistory(data.runs || []));
       } else {
         setHistoryError(data.error || "Could not load recent study materials.");
       }
@@ -83,8 +91,6 @@ function FlashcardsClientInner() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
-  // Refetch whenever the tab regains focus — covers the case where a
-  // result was generated in another tab/view and this list went stale.
   useEffect(() => {
     function handleFocus() { loadHistory(); }
     window.addEventListener("focus", handleFocus);
@@ -185,6 +191,40 @@ function FlashcardsClientInner() {
     if (!window.confirm("Delete this deck and all its cards?")) return;
     await fetch(`/api/flashcards/decks/${id}`, { method: "DELETE" });
     setDecks((prev) => prev.filter((d) => d.id !== id));
+  }
+
+  async function togglePinHistory(run, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const nextFavorited = !run.favorited;
+    setHistory((prev) => sortHistory(prev.map((r) => (r.id === run.id ? { ...r, favorited: nextFavorited } : r))));
+    setPendingActionId(run.id);
+    try {
+      await fetch(`/api/tool-runs/${run.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favorited: nextFavorited }),
+      });
+    } catch {
+      // best-effort — a failed toggle just means it reverts on next reload
+    } finally {
+      setPendingActionId(null);
+    }
+  }
+
+  async function deleteHistoryItem(run, e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!window.confirm(`Delete "${run.toolLabel}" for "${run.inputSummary}"?`)) return;
+    setPendingActionId(run.id);
+    try {
+      await fetch(`/api/tool-runs/${run.id}`, { method: "DELETE" });
+      setHistory((prev) => prev.filter((r) => r.id !== run.id));
+    } catch {
+      setHistoryError("Could not delete that item. Please try again.");
+    } finally {
+      setPendingActionId(null);
+    }
   }
 
   return (
@@ -363,6 +403,22 @@ function FlashcardsClientInner() {
                     {run.inputSummary} · {relativeTime(run.createdAt)}
                   </div>
                 </div>
+                <button
+                  onClick={(e) => togglePinHistory(run, e)}
+                  aria-label={run.favorited ? "Unpin" : "Pin"}
+                  disabled={pendingActionId === run.id}
+                  style={{ color: run.favorited ? "var(--accent)" : "var(--text-muted)", background: "none", border: "none", flexShrink: 0 }}
+                >
+                  <Star size={14} fill={run.favorited ? "var(--accent)" : "none"} />
+                </button>
+                <button
+                  onClick={(e) => deleteHistoryItem(run, e)}
+                  aria-label="Delete"
+                  disabled={pendingActionId === run.id}
+                  style={{ color: "var(--text-muted)", background: "none", border: "none", flexShrink: 0 }}
+                >
+                  <Trash2 size={14} />
+                </button>
               </Link>
             ))}
           </div>
