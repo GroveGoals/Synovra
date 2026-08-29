@@ -12,7 +12,7 @@ export default async function FeedPage() {
 
   return (
     <NavShell user={user}>
-      <FeedClient />
+      <FeedClient user={user} />
     </NavShell>
   );
-}
+    }
