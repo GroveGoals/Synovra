@@ -4,17 +4,20 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, Star, AlertCircle } from "lucide-react";
 import MarkdownText from "@/components/MarkdownText";
 import QuizTaker from "@/components/QuizTaker";
+import StructuredListView from "@/components/StructuredListView";
 
-function parseQuiz(resultText) {
+function parseStructured(resultText) {
   try {
     const parsed = JSON.parse(resultText);
     if (parsed?.type === "quiz" && Array.isArray(parsed.questions) && parsed.questions.length > 0) {
-      return parsed;
+      return { kind: "quiz", data: parsed };
+    }
+    if (["keypoints", "revision", "summary"].includes(parsed?.type) && Array.isArray(parsed.items)) {
+      return { kind: "list", data: parsed };
     }
   } catch {
-    // Not JSON — this is a markdown-based tool result (summary, key points,
-    // revision questions, explain, or a quiz generated before this format
-    // existed). Fall through to markdown rendering.
+    // Not JSON — markdown-based result (explain, or a tool generated
+    // before this structured format existed). Fall through.
   }
   return null;
 }
@@ -54,7 +57,7 @@ export default function StudyToolResultClient({ runId }) {
     return <div className="flex justify-center py-16" style={{ color: "var(--text-muted)" }}><Loader2 size={22} className="animate-spin" /></div>;
   }
 
-  const quiz = run && !error ? parseQuiz(run.result) : null;
+  const structured = run && !error ? parseStructured(run.result) : null;
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pb-16">
@@ -77,8 +80,10 @@ export default function StudyToolResultClient({ runId }) {
             </div>
             <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>{run.inputSummary}</p>
 
-            {quiz ? (
-              <QuizTaker questions={quiz.questions} coverImage={quiz.coverImage} />
+            {structured?.kind === "quiz" ? (
+              <QuizTaker questions={structured.data.questions} coverImage={structured.data.coverImage} />
+            ) : structured?.kind === "list" ? (
+              <StructuredListView items={structured.data.items} />
             ) : (
               <div className="card p-4" style={{ overflowWrap: "anywhere" }}>
                 <MarkdownText text={run.result} />
