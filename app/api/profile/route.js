@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/requireUser";
 
 const LANGUAGES = ["English", "French", "Spanish", "Arabic"];
 const MAX_BIO_LENGTH = 150;
+const MAX_DISPLAY_NAME_LENGTH = 50;
 
 export async function GET() {
   const user = await requireUser();
@@ -12,6 +13,7 @@ export async function GET() {
   return NextResponse.json({
     profile: {
       username: user.username,
+      displayName: user.displayName,
       email: user.email,
       avatarDataUrl: user.avatarDataUrl,
       bio: user.bio,
@@ -44,6 +46,17 @@ export async function PATCH(req) {
       }
       data.username = cleanUsername;
     }
+  }
+
+  if (typeof body.displayName === "string") {
+    const cleanDisplayName = body.displayName.trim();
+    if (cleanDisplayName.length > MAX_DISPLAY_NAME_LENGTH) {
+      return NextResponse.json(
+        { error: `Name must be ${MAX_DISPLAY_NAME_LENGTH} characters or fewer.` },
+        { status: 400 }
+      );
+    }
+    data.displayName = cleanDisplayName || null;
   }
 
   if (typeof body.bio === "string") {
@@ -85,6 +98,7 @@ export async function PATCH(req) {
     ok: true,
     profile: {
       username: updated.username,
+      displayName: updated.displayName,
       email: updated.email,
       avatarDataUrl: updated.avatarDataUrl,
       bio: updated.bio,
