@@ -399,7 +399,6 @@ model StudyRoom {
   members  StudyRoomMember[]
   messages StudyRoomMessage[]
 }
-
 model StudyRoomMessage {
   id     String    @id @default(uuid())
   roomId String
