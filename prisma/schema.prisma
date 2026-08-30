@@ -339,7 +339,9 @@ model Folder {
   notes     Note[]
 }
 
-model StudySession {
+model StudySession {hostedStudyRooms     StudyRoom[]        @relation("StudyRoomHost")
+  studyRoomMemberships StudyRoomMember[]  @relation("StudyRoomMemberships")
+  studyRoomMessages    StudyRoomMessage[] @relation("StudyRoomMessages")
   id     String @id @default(uuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
