@@ -33,17 +33,26 @@ export async function GET(req, { params }) {
           .then((f) => !!f),
   ]);
 
-  let posts = [];
+  let publicPosts = [];
+  let privatePosts = [];
   let likeCount = 0;
 
   if (canViewPosts) {
     const allPosts = await prisma.feedPost.findMany({
-      where: { authorId: target.id, isPrivate: false },
+      where: { authorId: target.id },
       orderBy: { createdAt: "desc" },
-      select: { id: true, mediaUrl: true, mediaType: true, likedBy: true },
+      select: { id: true, mediaUrl: true, mediaType: true, isPrivate: true, likedBy: true },
     });
-    likeCount = allPosts.reduce((sum, p) => sum + p.likedBy.length, 0);
-    posts = allPosts.map(({ id, mediaUrl, mediaType }) => ({ id, mediaUrl, mediaType }));
+
+    const visible = isOwner ? allPosts : allPosts.filter((p) => !p.isPrivate);
+    likeCount = visible.reduce((sum, p) => sum + p.likedBy.length, 0);
+
+    publicPosts = allPosts
+      .filter((p) => !p.isPrivate)
+      .map(({ id, mediaUrl, mediaType }) => ({ id, mediaUrl, mediaType }));
+    privatePosts = isOwner
+      ? allPosts.filter((p) => p.isPrivate).map(({ id, mediaUrl, mediaType }) => ({ id, mediaUrl, mediaType }))
+      : [];
   }
 
   return NextResponse.json({
@@ -61,7 +70,11 @@ export async function GET(req, { params }) {
     followingCount,
     likeCount,
     canViewPosts,
-    postCount: canViewPosts ? posts.length : null,
-    posts,
+    // Visitor-facing combined shape (used by PublicProfileClient)
+    postCount: canViewPosts ? publicPosts.length : null,
+    posts: publicPosts,
+    // Owner-facing split shape (used by ProfilePage's Posts/Private tabs)
+    publicPosts,
+    privatePosts,
   });
 }
