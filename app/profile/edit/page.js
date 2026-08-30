@@ -79,7 +79,7 @@ export default function EditProfilePage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [cropSource, setCropSource] = useState(null);
-  const [activeField, setActiveField] = useState(null); // "username" | "bio" | null
+  const [activeField, setActiveField] = useState(null); // "displayName" | "username" | "bio" | null
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const fileInputRef = useRef(null);
@@ -186,6 +186,7 @@ export default function EditProfilePage() {
   }
 
   const ROWS = [
+    { key: "displayName", label: "Name", value: profile?.displayName, multiline: false, maxLength: 50 },
     { key: "username", label: "Username", value: profile?.username, multiline: false, maxLength: 30 },
     { key: "bio", label: "Bio", value: profile?.bio || "", multiline: true, maxLength: MAX_BIO_LENGTH },
   ];
