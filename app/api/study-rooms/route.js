@@ -11,7 +11,7 @@ export async function GET() {
     include: {
       room: {
         include: {
-          host: { select: { id: true, username: true } },
+          host: { select: { id: true, username: true, displayName: true } },
           _count: { select: { members: true } },
         },
       },
@@ -42,7 +42,7 @@ export async function POST(req) {
       subject: subject?.trim() || null,
       members: { create: { userId: user.id, status: "studying" } },
     },
-    include: { host: { select: { id: true, username: true } } },
+    include: { host: { select: { id: true, username: true, displayName: true } } },
   });
 
   return NextResponse.json({ ok: true, room });
