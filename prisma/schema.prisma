@@ -325,6 +325,7 @@ model Note {
   isAssignment  Boolean  @default(false)
   dueDate       DateTime?
   submitted     Boolean  @default(false)
+  shareToken    String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
