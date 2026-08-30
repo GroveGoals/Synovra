@@ -11,6 +11,8 @@ export async function GET(req) {
   const folderId = searchParams.get("folderId");
   const favoritesOnly = searchParams.get("favorites") === "1";
   const assignmentsOnly = searchParams.get("assignments") === "1";
+  const sharedOnly = searchParams.get("shared") === "1";
+  const recentOnly = searchParams.get("recent") === "1";
 
   const notes = await prisma.note.findMany({
     where: {
@@ -18,8 +20,10 @@ export async function GET(req) {
       ...(folderId ? { folderId } : {}),
       ...(favoritesOnly ? { pinned: true } : {}),
       ...(assignmentsOnly ? { isAssignment: true } : {}),
+      ...(sharedOnly ? { shareToken: { not: null } } : {}),
     },
     orderBy: { updatedAt: "desc" },
+    ...(recentOnly ? { take: 10 } : {}),
   });
 
   return NextResponse.json({ ok: true, notes });
