@@ -9,16 +9,16 @@ export async function GET(req, { params }) {
   const room = await prisma.studyRoom.findUnique({
     where: { id: params.roomId },
     include: {
-      host: { select: { id: true, username: true } },
+      host: { select: { id: true, username: true, displayName: true } },
       members: {
         where: { status: { not: "left" } },
-        include: { user: { select: { id: true, username: true, avatarDataUrl: true } } },
+        include: { user: { select: { id: true, username: true, displayName: true, avatarDataUrl: true } } },
         orderBy: { joinedAt: "asc" },
       },
       messages: {
         orderBy: { createdAt: "asc" },
         take: 100,
-        include: { user: { select: { id: true, username: true } } },
+        include: { user: { select: { id: true, username: true, displayName: true } } },
       },
     },
   });
