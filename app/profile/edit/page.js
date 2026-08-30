@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { User, Loader2, AlertCircle, CheckCircle2, Camera, Trash2, RefreshCw, Settings } from "lucide-react";
+import { User, Loader2, AlertCircle, CheckCircle2, Camera, Trash2, RefreshCw, ArrowLeft } from "lucide-react";
 import NavShell from "@/components/NavShell";
 import AvatarCropper from "@/components/AvatarCropper";
 
@@ -10,7 +10,7 @@ const MAX_UPLOAD_BYTES = 1_000_000; // ~1MB before base64 overhead
 export default function EditProfilePage() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [form, setForm] = useState({ username: "", bio: "", country: "", language: "English", isPublic: true });
+  const [form, setForm] = useState({ username: "", country: "", language: "English", isPublic: true });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -35,7 +35,6 @@ export default function EditProfilePage() {
       setProfile(profileData.profile);
       setForm({
         username: profileData.profile.username,
-        bio: profileData.profile.bio || "",
         country: profileData.profile.country || "",
         language: profileData.profile.language,
         isPublic: profileData.profile.isPublic,
@@ -188,14 +187,12 @@ export default function EditProfilePage() {
       )}
       <div className="min-h-screen flex flex-col items-center px-4 pb-16">
         <div className="w-full max-w-[420px] card p-7 mt-10">
-          <div className="flex items-center justify-between mb-1">
-            <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-              Edit Profile
-            </h1>
-            <Link href="/settings/feed" aria-label="Feed settings" style={{ color: "var(--text-muted)" }}>
-              <Settings size={20} />
-            </Link>
-          </div>
+          <Link href="/profile" className="btn-text inline-flex items-center gap-1.5 mb-4">
+            <ArrowLeft size={14} /> Profile
+          </Link>
+          <h1 className="text-xl font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>
+            Edit Profile
+          </h1>
           <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
             {profile?.email}
           </p>
@@ -262,23 +259,6 @@ export default function EditProfilePage() {
                   value={form.username}
                   onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
                 />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
-                Bio
-              </label>
-              <textarea
-                className="input pl-3"
-                style={{ minHeight: 70, resize: "vertical", paddingTop: 10 }}
-                placeholder="Tell people about yourself…"
-                maxLength={150}
-                value={form.bio}
-                onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
-              />
-              <div className="text-xs mt-1" style={{ color: "var(--text-muted)", textAlign: "right" }}>
-                {form.bio.length}/150
               </div>
             </div>
 
