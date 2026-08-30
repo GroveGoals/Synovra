@@ -29,6 +29,7 @@ export default function PublicProfileClient({ userId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [followLoading, setFollowLoading] = useState(false);
 
   useEffect(() => {
     fetch(`/api/users/${userId}`)
@@ -42,6 +43,21 @@ export default function PublicProfileClient({ userId }) {
       })
       .finally(() => setLoading(false));
   }, [userId]);
+
+  async function handleFollow() {
+    if (!data) return;
+    setFollowLoading(true);
+    const res = await fetch(`/api/users/${userId}/follow`, { method: "POST" });
+    const json = await res.json();
+    setFollowLoading(false);
+    if (res.ok) {
+      setData((d) => ({
+        ...d,
+        isFollowedByMe: json.following,
+        followerCount: d.followerCount + (json.following ? 1 : -1),
+      }));
+    }
+  }
 
   if (loading) {
     return (
@@ -59,36 +75,61 @@ export default function PublicProfileClient({ userId }) {
     );
   }
 
-  const { profile, posts, postCount } = data;
-  const canViewPosts = postCount !== null;
+  const { profile, posts, canViewPosts, isFollowedByMe, followerCount, followingCount, likeCount } = data;
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pb-16">
       <div className="w-full max-w-[480px] mt-10">
-        <Link href="/dashboard" className="btn-text inline-flex items-center gap-1.5 mb-4">
+        <Link href="/feed" className="btn-text inline-flex items-center gap-1.5 mb-4">
           <ArrowLeft size={14} /> Back
         </Link>
 
-        <div className="flex flex-col items-center text-center mb-6">
+        <div className="flex flex-col items-center text-center mb-4">
           <Avatar user={profile} />
           <h1 className="text-lg font-semibold mt-3" style={{ fontFamily: "var(--font-display)" }}>
             {profile.username}
           </h1>
-          <div className="flex items-center gap-1.5 mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-            <Calendar size={12} /> Joined {formatDate(profile.createdAt)}
+          <span className="text-xs" style={{ color: "var(--text-muted)" }}>@{profile.username}</span>
+        </div>
+
+        <div className="flex items-center justify-center gap-8 mb-4">
+          <div className="text-center">
+            <div className="text-base font-semibold">{followingCount}</div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>Following</div>
           </div>
-          {canViewPosts && (
-            <div className="text-xs mt-2" style={{ color: "var(--text-muted)" }}>
-              {postCount} post{postCount === 1 ? "" : "s"}
-            </div>
-          )}
+          <div className="text-center">
+            <div className="text-base font-semibold">{followerCount}</div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>Followers</div>
+          </div>
+          <div className="text-center">
+            <div className="text-base font-semibold">{likeCount}</div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>Likes</div>
+          </div>
+        </div>
+
+        {profile.bio && (
+          <p className="text-sm text-center mb-3" style={{ color: "var(--text)" }}>{profile.bio}</p>
+        )}
+        <div className="flex items-center justify-center gap-1.5 mb-4 text-xs" style={{ color: "var(--text-muted)" }}>
+          <Calendar size={12} /> Joined {formatDate(profile.createdAt)}
+        </div>
+
+        <div className="mb-6">
+          <button
+            onClick={handleFollow}
+            disabled={followLoading}
+            className="btn-primary w-full"
+            style={isFollowedByMe ? { background: "var(--surface-2)", color: "var(--text)" } : undefined}
+          >
+            {followLoading ? <Loader2 size={15} className="animate-spin" /> : isFollowedByMe ? "Following" : "Follow"}
+          </button>
         </div>
 
         {!canViewPosts ? (
           <div className="card p-6 flex flex-col items-center text-center" style={{ color: "var(--text-muted)" }}>
             <Lock size={22} className="mb-2" />
             <p className="text-sm font-medium" style={{ color: "var(--text)" }}>This account is private</p>
-            <p className="text-xs mt-1">Only they can see their posts.</p>
+            <p className="text-xs mt-1">Only their followers can see their posts.</p>
           </div>
         ) : posts.length === 0 ? (
           <p className="text-sm text-center" style={{ color: "var(--text-muted)" }}>No posts yet.</p>
