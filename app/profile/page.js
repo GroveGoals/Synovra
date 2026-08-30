@@ -1,172 +1,98 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { User, Loader2, AlertCircle, CheckCircle2, Camera, Trash2, RefreshCw, Settings } from "lucide-react";
+import { Settings, Loader2, Play, Lock, Bookmark, Heart } from "lucide-react";
 import NavShell from "@/components/NavShell";
-import AvatarCropper from "@/components/AvatarCropper";
 
-const MAX_UPLOAD_BYTES = 1_000_000; // ~1MB before base64 overhead
+function Avatar({ user, size = 88 }) {
+  if (user?.avatarDataUrl) {
+    return <img src={user.avatarDataUrl} alt="" style={{ width: size, height: size, borderRadius: "50%", objectFit: "cover" }} />;
+  }
+  return (
+    <div
+      style={{
+        width: size, height: size, borderRadius: "50%",
+        background: "var(--accent-soft)", color: "var(--accent)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontWeight: 600, fontSize: size * 0.35, fontFamily: "var(--font-display)",
+      }}
+    >
+      {user?.username?.slice(0, 2).toUpperCase() || "?"}
+    </div>
+  );
+}
+
+function PostGrid({ posts, emptyLabel }) {
+  if (posts.length === 0) {
+    return <p className="text-sm text-center py-8" style={{ color: "var(--text-muted)" }}>{emptyLabel}</p>;
+  }
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4 }}>
+      {posts.map((post) => (
+        <div
+          key={post.id}
+          style={{
+            position: "relative", aspectRatio: "1", borderRadius: 8, overflow: "hidden",
+            background: "var(--surface-2)",
+          }}
+        >
+          {post.mediaUrl ? (
+            post.mediaType === "video" ? (
+              <video src={post.mediaUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <img src={post.mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            )
+          ) : null}
+          {post.mediaType === "video" && (
+            <Play size={16} color="white" style={{ position: "absolute", top: 6, right: 6 }} fill="white" />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [form, setForm] = useState({ username: "", country: "", language: "English", isPublic: true });
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [cropSource, setCropSource] = useState(null);
-  const [detectingCountry, setDetectingCountry] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const fileInputRef = useRef(null);
+  const [tab, setTab] = useState("posts");
+  const [savedPosts, setSavedPosts] = useState(null);
+  const [likedPosts, setLikedPosts] = useState(null);
+  const [tabLoading, setTabLoading] = useState(false);
 
-  async function loadEverything() {
-    try {
-      const [sessionRes, profileRes] = await Promise.all([
-        fetch("/api/auth/session"),
-        fetch("/api/profile"),
-      ]);
-      const sessionData = await sessionRes.json();
-      if (!profileRes.ok) {
-        throw new Error(`Profile request failed (${profileRes.status})`);
-      }
-      const profileData = await profileRes.json();
-      setUser(sessionData.user);
-      setProfile(profileData.profile);
-      setForm({
-        username: profileData.profile.username,
-        country: profileData.profile.country || "",
-        language: profileData.profile.language,
-        isPublic: profileData.profile.isPublic,
-      });
-    } catch (err) {
-      setError(`Could not load your profile: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  }
+  const loadProfile = useCallback(async () => {
+    const sessionRes = await fetch("/api/auth/session");
+    const sessionData = await sessionRes.json();
+    setUser(sessionData.user);
 
-  useEffect(() => {
-    loadEverything();
+    const profileRes = await fetch(`/api/users/${sessionData.user.id}`);
+    const profileData = await profileRes.json();
+    setData(profileData);
+    setLoading(false);
   }, []);
 
-  useEffect(() => {
-    if (!loading && profile && !profile.country) {
-      detectCountry();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, profile]);
+  useEffect(() => { loadProfile(); }, [loadProfile]);
 
-  async function detectCountry() {
-    setDetectingCountry(true);
-    try {
-      const res = await fetch("https://ipapi.co/json/");
-      const data = await res.json();
-      if (data?.country_name) {
-        setForm((f) => ({ ...f, country: data.country_name }));
-      }
-    } catch {
-      // Silent — country just stays unset if detection fails; user can retry.
-    } finally {
-      setDetectingCountry(false);
+  async function handleTabChange(nextTab) {
+    setTab(nextTab);
+    if (nextTab === "saved" && savedPosts === null) {
+      setTabLoading(true);
+      const res = await fetch("/api/feed/saved");
+      const json = await res.json();
+      setSavedPosts(json.posts || []);
+      setTabLoading(false);
+    }
+    if (nextTab === "liked" && likedPosts === null) {
+      setTabLoading(true);
+      const res = await fetch("/api/feed/liked");
+      const json = await res.json();
+      setLikedPosts(json.posts || []);
+      setTabLoading(false);
     }
   }
 
-  async function handleSave(e) {
-    e.preventDefault();
-    setError("");
-    setSuccess("");
-    setSaving(true);
-    try {
-      const res = await fetch("/api/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Could not save changes.");
-        setSaving(false);
-        return;
-      }
-      setProfile(data.profile);
-      setSuccess("Profile updated.");
-    } catch {
-      setError("Network error. Please try again.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function handleFileChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setError("");
-    setSuccess("");
-
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setError("Image is too large — please choose one under 1MB.");
-      return;
-    }
-    if (!file.type.startsWith("image/")) {
-      setError("Please choose an image file.");
-      return;
-    }
-
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-    setCropSource(dataUrl);
-    e.target.value = "";
-  }
-
-  async function handleCropSave(croppedDataUrl) {
-    setCropSource(null);
-    setUploading(true);
-    setError("");
-    setSuccess("");
-    try {
-      const res = await fetch("/api/profile/avatar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl: croppedDataUrl }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Upload failed.");
-        setUploading(false);
-        return;
-      }
-      setProfile((p) => ({ ...p, avatarDataUrl: croppedDataUrl }));
-      setUser((u) => ({ ...u, avatarDataUrl: croppedDataUrl }));
-      setSuccess("Profile picture updated.");
-    } catch {
-      setError("Upload failed. Please try again.");
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  async function handleRemoveAvatar() {
-    setError("");
-    setSuccess("");
-    try {
-      const res = await fetch("/api/profile/avatar", { method: "DELETE" });
-      if (!res.ok) {
-        setError("Could not remove photo.");
-        return;
-      }
-      setProfile((p) => ({ ...p, avatarDataUrl: null }));
-      setUser((u) => ({ ...u, avatarDataUrl: null }));
-    } catch {
-      setError("Network error. Please try again.");
-    }
-  }
-
-  if (loading) {
+  if (loading || !data) {
     return (
       <NavShell user={user}>
         <div className="min-h-[60vh] flex items-center justify-center" style={{ color: "var(--text-muted)" }}>
@@ -176,143 +102,89 @@ export default function ProfilePage() {
     );
   }
 
+  const { profile, followerCount, followingCount, likeCount, publicPosts, privatePosts } = data;
+
+  const TABS = [
+    { key: "posts", label: "Posts", icon: null },
+    { key: "private", label: "Private", icon: Lock },
+    { key: "saved", label: "Saved", icon: Bookmark },
+    { key: "liked", label: "Liked", icon: Heart },
+  ];
+
   return (
     <NavShell user={user}>
-      {cropSource && (
-        <AvatarCropper
-          imageSrc={cropSource}
-          onCancel={() => setCropSource(null)}
-          onSave={handleCropSave}
-        />
-      )}
       <div className="min-h-screen flex flex-col items-center px-4 pb-16">
-        <div className="w-full max-w-[420px] card p-7 mt-10">
-          <div className="flex items-center justify-between mb-1">
-            <h1 className="text-xl font-semibold" style={{ fontFamily: "var(--font-display)" }}>
-              My Profile
-            </h1>
-            <Link href="/settings" aria-label="Settings" style={{ color: "var(--text-muted)" }}>
-              <Settings size={20} />
+        <div className="w-full max-w-[480px] mt-6">
+          <div className="flex items-center justify-end mb-2">
+            <Link href="/settings/feed" aria-label="Settings and privacy" style={{ color: "var(--text-muted)" }}>
+              <Settings size={22} />
             </Link>
           </div>
-          <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-            {profile?.email}
-          </p>
 
-          <div className="flex flex-col items-center mb-6">
-            <div className="relative">
-              {profile?.avatarDataUrl ? (
-                <img
-                  src={profile.avatarDataUrl}
-                  alt="Profile"
-                  className="w-24 h-24 rounded-full object-cover"
-                  style={{ boxShadow: "0 0 0 3px var(--border)" }}
-                />
-              ) : (
-                <div
-                  className="w-24 h-24 rounded-full flex items-center justify-center text-3xl font-semibold"
-                  style={{ background: "var(--accent-soft)", color: "var(--accent)", fontFamily: "var(--font-display)" }}
-                >
-                  {profile?.username?.slice(0, 2).toUpperCase()}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: "var(--accent)", color: "white" }}
-                aria-label="Upload photo"
-                disabled={uploading}
-              >
-                {uploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                style={{ display: "none" }}
-              />
+          <div className="flex flex-col items-center text-center mb-4">
+            <Avatar user={profile} />
+            <div className="flex items-center gap-2 mt-3">
+              <h1 className="text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>
+                {profile.username}
+              </h1>
+              <Link href="/profile/edit" className="btn-primary" style={{ padding: "5px 14px", fontSize: 13, width: "auto" }}>
+                Edit
+              </Link>
             </div>
-            {profile?.avatarDataUrl && (
-              <button
-                type="button"
-                onClick={handleRemoveAvatar}
-                className="btn-ghost inline-flex items-center gap-1.5 mt-2 text-xs"
-                style={{ color: "var(--text-muted)" }}
-              >
-                <Trash2 size={12} /> Remove photo
-              </button>
+
+            <div className="flex items-center gap-6 mt-4">
+              <div className="text-center">
+                <div className="text-sm font-semibold">{followingCount}</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>Following</div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm font-semibold">{followerCount}</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>Followers</div>
+              </div>
+              <div className="text-center">
+                <div className="text-sm font-semibold">{likeCount}</div>
+                <div className="text-xs" style={{ color: "var(--text-muted)" }}>Likes</div>
+              </div>
+            </div>
+
+            {profile.bio && (
+              <p className="text-sm mt-3" style={{ color: "var(--text)", overflowWrap: "anywhere" }}>
+                {profile.bio}
+              </p>
             )}
           </div>
 
-          {error && <div className="alert alert-error mb-4"><AlertCircle size={15} />{error}</div>}
-          {success && <div className="alert alert-success mb-4"><CheckCircle2 size={15} />{success}</div>}
-
-          <form onSubmit={handleSave} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
-                Username
-              </label>
-              <div className="relative flex items-center">
-                <User size={15} className="absolute left-3" style={{ color: "var(--text-muted)" }} />
-                <input
-                  className="input"
-                  value={form.username}
-                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
-                Country <span style={{ fontWeight: 400 }}>(detected automatically)</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <div
-                  className="input pl-3 flex items-center"
-                  style={{ background: "var(--surface-2)", color: form.country ? "var(--text)" : "var(--text-muted)" }}
-                >
-                  {detectingCountry ? "Detecting…" : form.country || "Not detected yet"}
-                </div>
-                <button
-                  type="button"
-                  onClick={detectCountry}
-                  disabled={detectingCountry}
-                  className="btn-ghost"
-                  style={{ color: "var(--text-muted)", padding: "10px" }}
-                  aria-label="Re-detect country"
-                >
-                  <RefreshCw size={16} className={detectingCountry ? "animate-spin" : ""} />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-1">
-              <div>
-                <div className="text-sm font-medium">Public profile</div>
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  Anyone can view your profile if enabled
-                </div>
-              </div>
+          <div className="flex items-center justify-around mb-4" style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+            {TABS.map((t) => (
               <button
-                type="button"
-                onClick={() => setForm((f) => ({ ...f, isPublic: !f.isPublic }))}
-                className="w-11 h-6 rounded-full relative transition-colors"
-                style={{ background: form.isPublic ? "var(--accent)" : "var(--border)" }}
+                key={t.key}
+                onClick={() => handleTabChange(t.key)}
+                className="flex items-center justify-center gap-1.5 py-3"
+                style={{
+                  flex: 1, background: "none", border: "none",
+                  borderBottom: tab === t.key ? "2px solid var(--accent)" : "2px solid transparent",
+                  color: tab === t.key ? "var(--accent)" : "var(--text-muted)",
+                }}
+                aria-label={t.label}
               >
-                <span
-                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
-                  style={{ transform: form.isPublic ? "translateX(22px)" : "translateX(2px)" }}
-                />
+                {t.icon ? <t.icon size={16} /> : <span className="text-xs font-semibold">{t.label}</span>}
               </button>
-            </div>
+            ))}
+          </div>
 
-            <button className="btn-primary" type="submit" disabled={saving}>
-              {saving && <Loader2 size={15} className="animate-spin" />}
-              Save Changes
-            </button>
-          </form>
+          {tabLoading ? (
+            <div className="flex justify-center py-8" style={{ color: "var(--text-muted)" }}>
+              <Loader2 size={20} className="animate-spin" />
+            </div>
+          ) : tab === "posts" ? (
+            <PostGrid posts={publicPosts} emptyLabel="No posts yet." />
+          ) : tab === "private" ? (
+            <PostGrid posts={privatePosts} emptyLabel="No private posts." />
+          ) : tab === "saved" ? (
+            <PostGrid posts={savedPosts || []} emptyLabel="Nothing saved yet." />
+          ) : (
+            <PostGrid posts={likedPosts || []} emptyLabel="No liked posts yet." />
+          )}
         </div>
       </div>
     </NavShell>
