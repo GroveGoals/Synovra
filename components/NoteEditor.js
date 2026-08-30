@@ -6,7 +6,7 @@ import {
   ArrowLeft, Star, MoreVertical, Plus, Type, Image as ImageIcon,
   Paperclip, CheckSquare, Trash2, X, Folder as FolderIcon,
   ClipboardCheck, Send, GripVertical, Sparkles, Loader2, AlertCircle, RefreshCw,
-  ChevronRight, ChevronDown,
+  ChevronRight, ChevronDown, Share2, Check, Tag,
 } from "lucide-react";
 import {
   BLOCK_TYPES, TEXT_BLOCK_TYPES, NON_TEXT_TYPES, createBlock, emptyDoc, extractNoteContent,
@@ -67,6 +67,8 @@ export default function NoteEditor({ noteId }) {
   const [aiMenuOpen, setAiMenuOpen] = useState(false);
   const [aiRunning, setAiRunning] = useState(null);
   const [aiError, setAiError] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
+  const [tagInput, setTagInput] = useState("");
 
   const blockRefs = useRef({});
   const saveTimer = useRef(null);
@@ -280,6 +282,43 @@ export default function NoteEditor({ noteId }) {
     setMoreMenuOpen(false);
   }
 
+  async function handleShare() {
+    const res = await fetch(`/api/notes/${noteId}/share`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) return;
+    setNote((n) => ({ ...n, shareToken: data.shareToken }));
+    const url = `${window.location.origin}/share/note/${data.shareToken}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: title || "Untitled", url });
+      } catch {
+        // user cancelled the share sheet — no action needed
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }
+    setMoreMenuOpen(false);
+  }
+
+  function addTag(e) {
+    e.preventDefault();
+    const value = tagInput.trim();
+    if (!value || note.tags?.includes(value)) { setTagInput(""); return; }
+    const next = [...(note.tags || []), value];
+    setNote((n) => ({ ...n, tags: next }));
+    scheduleSave({ tags: next });
+    setTagInput("");
+  }
+
+  function removeTag(tagToRemove) {
+    const next = (note.tags || []).filter((t) => t !== tagToRemove);
+    setNote((n) => ({ ...n, tags: next }));
+    scheduleSave({ tags: next });
+  }
+
   async function handleDeleteNote() {
     if (!window.confirm("Delete this note? This can't be undone.")) return;
     await fetch(`/api/notes/${noteId}`, { method: "DELETE" });
@@ -416,6 +455,14 @@ export default function NoteEditor({ noteId }) {
                     <FolderIcon size={14} /> Move to folder
                   </button>
                   <button
+                    onClick={handleShare}
+                    className="flex items-center gap-2 w-full p-2 rounded-lg text-sm"
+                    style={{ textAlign: "left" }}
+                  >
+                    {shareCopied ? <Check size={14} /> : <Share2 size={14} />}
+                    {shareCopied ? "Link copied" : note.shareToken ? "Copy share link" : "Share note"}
+                  </button>
+                  <button
                     onClick={toggleAssignment}
                     className="flex items-center gap-2 w-full p-2 rounded-lg text-sm"
                     style={{ textAlign: "left" }}
@@ -484,6 +531,30 @@ export default function NoteEditor({ noteId }) {
               <FolderIcon size={10} /> {currentFolder.name}
             </span>
           )}
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap mb-4">
+          {(note.tags || []).map((t) => (
+            <span
+              key={t}
+              className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
+              style={{ background: "var(--accent-soft)", color: "var(--accent)" }}
+            >
+              <Tag size={9} /> {t}
+              <button onClick={() => removeTag(t)} aria-label={`Remove tag ${t}`} style={{ background: "none", border: "none", color: "var(--accent)", display: "flex" }}>
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+          <form onSubmit={addTag} style={{ display: "inline-flex" }}>
+            <input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              placeholder="+ tag"
+              className="text-xs"
+              style={{ background: "none", border: "none", outline: "none", color: "var(--text-muted)", width: 50 }}
+            />
+          </form>
         </div>
 
         {note.isAssignment && (
