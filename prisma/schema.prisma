@@ -48,6 +48,9 @@ model User {
   feedSaves      FeedSave[]
   followers Follow[] @relation("Followers")
   following Follow[] @relation("Following")
+  hostedStudyRooms     StudyRoom[]        @relation("StudyRoomHost")
+  studyRoomMemberships StudyRoomMember[]  @relation("StudyRoomMemberships")
+  studyRoomMessages    StudyRoomMessage[] @relation("StudyRoomMessages")
 }
 
 model Follow {
@@ -339,9 +342,7 @@ model Folder {
   notes     Note[]
 }
 
-model StudySession {hostedStudyRooms     StudyRoom[]        @relation("StudyRoomHost")
-  studyRoomMemberships StudyRoomMember[]  @relation("StudyRoomMemberships")
-  studyRoomMessages    StudyRoomMessage[] @relation("StudyRoomMessages")
+model StudySession {
   id     String @id @default(uuid())
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -398,6 +399,19 @@ model StudyRoom {
   createdAt DateTime @default(now())
   members  StudyRoomMember[]
   messages StudyRoomMessage[]
+}
+
+model StudyRoomMember {
+  id     String    @id @default(uuid())
+  roomId String
+  room   StudyRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId String
+  user   User      @relation("StudyRoomMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  status       String   @default("invited") // "invited" | "studying" | "break" | "left"
+  joinedAt     DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+
+  @@unique([roomId, userId])
 }
 
 model StudyRoomMessage {
