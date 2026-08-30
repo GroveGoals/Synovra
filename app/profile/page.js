@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Settings, Loader2, Play, Lock, Bookmark, Heart } from "lucide-react";
+import { Settings, Loader2, Play, Lock, Bookmark, Heart, AlertCircle } from "lucide-react";
 import NavShell from "@/components/NavShell";
 
 function Avatar({ user, size = 88 }) {
@@ -56,47 +56,75 @@ export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [tab, setTab] = useState("posts");
   const [savedPosts, setSavedPosts] = useState(null);
   const [likedPosts, setLikedPosts] = useState(null);
   const [tabLoading, setTabLoading] = useState(false);
 
   const loadProfile = useCallback(async () => {
-    const sessionRes = await fetch("/api/auth/session");
-    const sessionData = await sessionRes.json();
-    setUser(sessionData.user);
+    setError("");
+    try {
+      const sessionRes = await fetch("/api/auth/session");
+      const sessionData = await sessionRes.json();
+      if (!sessionRes.ok || !sessionData?.user?.id) {
+        throw new Error("Could not load your session.");
+      }
+      setUser(sessionData.user);
 
-    const profileRes = await fetch(`/api/users/${sessionData.user.id}`);
-    const profileData = await profileRes.json();
-    setData(profileData);
-    setLoading(false);
+      const profileRes = await fetch(`/api/users/${sessionData.user.id}`);
+      const profileData = await profileRes.json();
+      if (!profileRes.ok) {
+        throw new Error(profileData.error || "Could not load your profile.");
+      }
+      setData(profileData);
+    } catch (err) {
+      setError(err.message || "Something went wrong loading your profile.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
   async function handleTabChange(nextTab) {
     setTab(nextTab);
-    if (nextTab === "saved" && savedPosts === null) {
-      setTabLoading(true);
-      const res = await fetch("/api/feed/saved");
-      const json = await res.json();
-      setSavedPosts(json.posts || []);
-      setTabLoading(false);
-    }
-    if (nextTab === "liked" && likedPosts === null) {
-      setTabLoading(true);
-      const res = await fetch("/api/feed/liked");
-      const json = await res.json();
-      setLikedPosts(json.posts || []);
+    try {
+      if (nextTab === "saved" && savedPosts === null) {
+        setTabLoading(true);
+        const res = await fetch("/api/feed/saved");
+        const json = await res.json();
+        setSavedPosts(res.ok ? json.posts || [] : []);
+        setTabLoading(false);
+      }
+      if (nextTab === "liked" && likedPosts === null) {
+        setTabLoading(true);
+        const res = await fetch("/api/feed/liked");
+        const json = await res.json();
+        setLikedPosts(res.ok ? json.posts || [] : []);
+        setTabLoading(false);
+      }
+    } catch {
       setTabLoading(false);
     }
   }
 
-  if (loading || !data) {
+  if (loading) {
     return (
       <NavShell user={user}>
         <div className="min-h-[60vh] flex items-center justify-center" style={{ color: "var(--text-muted)" }}>
           <Loader2 size={22} className="animate-spin" />
+        </div>
+      </NavShell>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <NavShell user={user}>
+        <div className="min-h-[60vh] flex flex-col items-center justify-center px-6 text-center gap-2" style={{ color: "var(--text-muted)" }}>
+          <AlertCircle size={22} />
+          <p className="text-sm">{error || "Could not load your profile."}</p>
         </div>
       </NavShell>
     );
