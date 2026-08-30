@@ -26,6 +26,10 @@ function relativeTime(dateStr) {
   return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+function displayNameOf(u) {
+  return u?.displayName || u?.username || "";
+}
+
 function groupMessages(messages) {
   const groups = [];
   for (const msg of messages) {
@@ -33,7 +37,7 @@ function groupMessages(messages) {
     if (last && last.userId === msg.userId) {
       last.messages.push(msg);
     } else {
-      groups.push({ userId: msg.userId, username: msg.user.username, messages: [msg] });
+      groups.push({ userId: msg.userId, username: displayNameOf(msg.user), messages: [msg] });
     }
   }
   return groups;
@@ -210,7 +214,7 @@ export default function StudyRoomClient({ roomId }) {
 
         {myStatus === "invited" && (
           <div className="card p-4 mb-4">
-            <p className="text-sm mb-3">{room.host.username} invited you to this study room.</p>
+            <p className="text-sm mb-3">{displayNameOf(room.host)} invited you to this study room.</p>
             <div className="flex gap-2">
               <button onClick={() => updateStatus("studying")} className="btn-primary">Join</button>
               <button onClick={handleLeave} className="btn-primary" style={{ background: "var(--surface-2)", color: "var(--text)" }}>Decline</button>
@@ -306,7 +310,7 @@ export default function StudyRoomClient({ roomId }) {
                   <div key={m.id} className="card p-2.5 flex items-center gap-2">
                     <Icon size={14} style={{ color: cfg.color, flexShrink: 0 }} />
                     <span className="text-sm font-medium" style={{ flex: 1 }}>
-                      {m.user.username}{m.userId === room.hostId ? " (host)" : ""}
+                      {displayNameOf(m.user)}{m.userId === room.hostId ? " (host)" : ""}
                     </span>
                     <span className="text-xs" style={{ color: cfg.color }}>{cfg.label}</span>
                   </div>
