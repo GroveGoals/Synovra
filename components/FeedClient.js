@@ -61,7 +61,7 @@ function VideoPlayer({ src, onSingleTap }) {
   }
 
   function handleTap() {
-    if (onSingleTap && onSingleTap()) return; // suppressed (a long-press just fired)
+    if (onSingleTap && onSingleTap()) return;
     togglePlay();
   }
 
@@ -117,7 +117,6 @@ function VideoPlayer({ src, onSingleTap }) {
         </div>
       )}
 
-      {/* Seek bar + time/duration — tap-and-drag to fast-forward or rewind */}
       <div
         style={{ position: "absolute", left: 12, right: 12, bottom: 10, zIndex: 3 }}
         onClick={(e) => e.stopPropagation()}
@@ -132,10 +131,7 @@ function VideoPlayer({ src, onSingleTap }) {
           onPointerDown={handleBarPointerDown}
           onPointerMove={handleBarPointerMove}
           onPointerUp={handleBarPointerUp}
-          style={{
-            height: 14, display: "flex", alignItems: "center", cursor: "pointer",
-            touchAction: "none",
-          }}
+          style={{ height: 14, display: "flex", alignItems: "center", cursor: "pointer", touchAction: "none" }}
         >
           <div style={{ position: "relative", width: "100%", height: 3, background: "rgba(255,255,255,0.3)", borderRadius: 2 }}>
             <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${progressPct}%`, background: "white", borderRadius: 2 }} />
@@ -445,7 +441,6 @@ function PostCard({ post, isOwner, onLike, onSave, onOpenComments, onLongPress }
     onLongPress(post);
   }
   function checkSuppressTap() {
-    // returns true if a long-press just fired, so the video's tap-to-pause should be skipped
     return longPressFiredRef.current;
   }
 
