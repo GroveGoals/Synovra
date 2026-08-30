@@ -4,6 +4,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Search, ChevronRight, Sparkles, MessageCircle, MessageSquare, Loader2, Pin, Trash2, Pencil, Share2, Check, X, Home } from "lucide-react";
 
+// Categories that already have their own dedicated section dashboard —
+// their tools should only show there, not in the general AI Tools list.
+const SECTION_OWNED_CATEGORIES = ["Business", "School", "Writing", "Travel", "Home Tools"];
+
 function relativeTime(dateStr) {
   const diffMs = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diffMs / 60000);
@@ -34,7 +38,9 @@ export default function AiToolsClient({ tools }) {
 
   useEffect(() => { loadConversations(); }, []);
 
-  const filtered = tools.filter((t) =>
+  const generalTools = tools.filter((t) => !SECTION_OWNED_CATEGORIES.includes(t.category));
+
+  const filtered = generalTools.filter((t) =>
     (t.label + " " + t.description).toLowerCase().includes(query.toLowerCase())
   );
   const categories = [...new Set(filtered.map((t) => t.category))];
@@ -132,7 +138,7 @@ export default function AiToolsClient({ tools }) {
           <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
         </Link>
 
-        {categories.length === 0 && (
+        {categories.length === 0 && query && (
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
             No tools match "{query}".
           </p>
