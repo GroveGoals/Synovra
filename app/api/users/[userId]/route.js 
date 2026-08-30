@@ -33,26 +33,17 @@ export async function GET(req, { params }) {
           .then((f) => !!f),
   ]);
 
-  let publicPosts = [];
-  let privatePosts = [];
+  let posts = [];
   let likeCount = 0;
 
   if (canViewPosts) {
     const allPosts = await prisma.feedPost.findMany({
-      where: { authorId: target.id },
+      where: { authorId: target.id, isPrivate: false },
       orderBy: { createdAt: "desc" },
-      select: { id: true, mediaUrl: true, mediaType: true, isPrivate: true, likedBy: true },
+      select: { id: true, mediaUrl: true, mediaType: true, likedBy: true },
     });
-
-    const visible = isOwner ? allPosts : allPosts.filter((p) => !p.isPrivate);
-    likeCount = visible.reduce((sum, p) => sum + p.likedBy.length, 0);
-
-    publicPosts = visible
-      .filter((p) => !p.isPrivate)
-      .map(({ id, mediaUrl, mediaType }) => ({ id, mediaUrl, mediaType }));
-    privatePosts = isOwner
-      ? allPosts.filter((p) => p.isPrivate).map(({ id, mediaUrl, mediaType }) => ({ id, mediaUrl, mediaType }))
-      : [];
+    likeCount = allPosts.reduce((sum, p) => sum + p.likedBy.length, 0);
+    posts = allPosts.map(({ id, mediaUrl, mediaType }) => ({ id, mediaUrl, mediaType }));
   }
 
   return NextResponse.json({
@@ -65,12 +56,12 @@ export async function GET(req, { params }) {
       createdAt: target.createdAt,
     },
     isOwner,
-    canViewPosts,
+    isFollowedByMe,
     followerCount,
     followingCount,
-    isFollowedByMe,
     likeCount,
-    publicPosts,
-    privatePosts,
+    canViewPosts,
+    postCount: canViewPosts ? posts.length : null,
+    posts,
   });
 }
