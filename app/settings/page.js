@@ -130,7 +130,7 @@ export default function SettingsPage() {
               <ChevronRight size={16} style={{ color: "var(--text-muted)" }} />
             </Link>
 
-            <Link href="/settings/privacy" className="flex items-center justify-between py-3" style={{ borderBottom: "1px solid var(--border)" }}>
+            <Link href="/settings/feed" className="flex items-center justify-between py-3" style={{ borderBottom: "1px solid var(--border)" }}>
               <div className="flex items-center gap-2 text-sm font-medium">
                 <ShieldQuestion size={16} /> Privacy
               </div>
