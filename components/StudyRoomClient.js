@@ -16,6 +16,29 @@ function formatRemaining(ms) {
   return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
 
+function relativeTime(dateStr) {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function groupMessages(messages) {
+  const groups = [];
+  for (const msg of messages) {
+    const last = groups[groups.length - 1];
+    if (last && last.userId === msg.userId) {
+      last.messages.push(msg);
+    } else {
+      groups.push({ userId: msg.userId, username: msg.user.username, messages: [msg] });
+    }
+  }
+  return groups;
+}
+
 export default function StudyRoomClient({ roomId }) {
   const router = useRouter();
   const [room, setRoom] = useState(null);
@@ -293,20 +316,40 @@ export default function StudyRoomClient({ roomId }) {
 
             {/* Chat */}
             <h2 className="text-sm font-semibold mb-2" style={{ color: "var(--text-muted)" }}>Chat</h2>
-            <div className="card p-3 mb-3" style={{ maxHeight: 260, overflowY: "auto" }}>
-              {room.messages.length === 0 ? (
-                <p className="text-xs text-center py-4" style={{ color: "var(--text-muted)" }}>No messages yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {room.messages.map((msg) => (
-                    <div key={msg.id} className="text-sm">
-                      <span className="font-semibold">{msg.user.username}: </span>
-                      <span style={{ overflowWrap: "anywhere" }}>{msg.text}</span>
+            <div className="card mb-3" style={{ maxHeight: 320, overflowY: "auto" }}>
+              <div className="p-3 space-y-3">
+                {room.messages.length === 0 ? (
+                  <p className="text-xs text-center py-6" style={{ color: "var(--text-muted)" }}>No messages yet — say hi.</p>
+                ) : (
+                  groupMessages(room.messages).map((group, gi) => (
+                    <div key={gi} className="flex items-start gap-2.5">
+                      <div
+                        style={{
+                          width: 34, height: 34, borderRadius: "50%", flexShrink: 0,
+                          background: "var(--accent-soft)", color: "var(--accent)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 12, fontWeight: 700, fontFamily: "var(--font-display)",
+                          marginTop: 2,
+                        }}
+                      >
+                        {group.username.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-sm font-semibold" style={{ color: "var(--accent)" }}>{group.username}</span>
+                          <span className="text-xs" style={{ color: "var(--text-muted)" }}>{relativeTime(group.messages[0].createdAt)}</span>
+                        </div>
+                        {group.messages.map((msg) => (
+                          <div key={msg.id} className="text-sm" style={{ overflowWrap: "anywhere", lineHeight: 1.5 }}>
+                            {msg.text}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-              )}
+                  ))
+                )}
+                <div ref={chatEndRef} />
+              </div>
             </div>
             <form onSubmit={handleSendMessage} className="flex gap-2">
               <input
