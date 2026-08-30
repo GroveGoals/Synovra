@@ -167,12 +167,15 @@ export default function NavShell({ children, user }) {
               {user?.avatarDataUrl ? (
                 <img className="vreedits-avatar" src={user.avatarDataUrl} alt="Profile" />
               ) : (
-                <div className="vreedits-avatar">{user?.username?.slice(0, 2).toUpperCase()}</div>
+                <div className="vreedits-avatar">{(user?.displayName || user?.username)?.slice(0, 2).toUpperCase()}</div>
               )}
               <span className={`vreedits-status-dot ${user?.online ? "online" : "offline"}`} />
             </div>
             <div className="vreedits-name-row" onClick={() => setProfileMenuOpen((v) => !v)}>
-              <span className="vreedits-display-name">{user?.username}</span>
+              <span className="vreedits-display-name">{user?.displayName || user?.username}</span>
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 1 }}>
+              @{user?.username}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-muted)", marginTop: 3 }}>
               {user?.online ? "Online" : "Offline"}
@@ -225,4 +228,4 @@ export default function NavShell({ children, user }) {
       <div className="vreedits-content">{children}</div>
     </div>
   );
-  }
+}
