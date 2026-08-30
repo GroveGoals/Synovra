@@ -6,6 +6,7 @@ import {
   ArrowLeft, Star, MoreVertical, Plus, Type, Image as ImageIcon,
   Paperclip, CheckSquare, Trash2, X, Folder as FolderIcon,
   ClipboardCheck, Send, GripVertical, Sparkles, Loader2, AlertCircle, RefreshCw,
+  ChevronRight, ChevronDown,
 } from "lucide-react";
 import {
   BLOCK_TYPES, TEXT_BLOCK_TYPES, NON_TEXT_TYPES, createBlock, emptyDoc, extractNoteContent,
@@ -21,6 +22,26 @@ const AI_ACTIONS = [
   { key: "explain", label: "Explain this", emoji: "💡" },
   { key: "keypoints", label: "Find Key Points", emoji: "🔑" },
 ];
+
+// A block is hidden if it falls after a collapsed Heading 1/2, up until
+// the next heading of the same or higher level (H1 collapses hide any
+// nested H2s too; H2 only hides until the next H1 or H2).
+function getVisibleFlags(blocks) {
+  const flags = [];
+  let hideLevel = null;
+  for (const block of blocks) {
+    const level = block.type === BLOCK_TYPES.HEADING1 ? 1 : block.type === BLOCK_TYPES.HEADING2 ? 2 : null;
+    if (level !== null && hideLevel !== null && level <= hideLevel) {
+      hideLevel = null;
+    }
+    const hidden = hideLevel !== null;
+    flags.push(hidden);
+    if (level !== null && !hidden && block.collapsed) {
+      hideLevel = level;
+    }
+  }
+  return flags;
+}
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -502,20 +523,32 @@ export default function NoteEditor({ noteId }) {
 
         {/* Blocks */}
         <div className="space-y-1">
-          {blocks.map((block, index) => (
-            <BlockRow
-              key={block.id}
-              block={block}
-              index={index}
-              registerRef={(el) => { if (el) blockRefs.current[block.id] = el; }}
-              onChange={(patch) => updateBlock(index, patch)}
-              onKeyDown={(e) => handleKeyDown(e, index)}
-              onOpenMenu={() => setMenuOpenAt(index)}
-              onDelete={() => deleteBlock(index)}
-              onDragStart={() => handleDragStart(index)}
-              onDrop={() => handleDrop(index)}
-            />
-          ))}
+          {(() => {
+            const hiddenFlags = getVisibleFlags(blocks);
+            return blocks.map((block, index) => {
+              if (hiddenFlags[index]) return null;
+              return (
+                <BlockRow
+                  key={block.id}
+                  block={block}
+                  index={index}
+                  registerRef={(el) => {
+                    if (el) {
+                      blockRefs.current[block.id] = el;
+                      el.style.height = "auto";
+                      el.style.height = el.scrollHeight + "px";
+                    }
+                  }}
+                  onChange={(patch) => updateBlock(index, patch)}
+                  onKeyDown={(e) => handleKeyDown(e, index)}
+                  onOpenMenu={() => setMenuOpenAt(index)}
+                  onDelete={() => deleteBlock(index)}
+                  onDragStart={() => handleDragStart(index)}
+                  onDrop={() => handleDrop(index)}
+                />
+              );
+            });
+          })()}
         </div>
 
         {menuOpenAt !== null && (
@@ -758,12 +791,19 @@ function BlockRow({ block, index, registerRef, onChange, onKeyDown, onOpenMenu, 
       >
         <GripVertical size={14} />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>{content}</div>
-      {NON_TEXT_TYPES.includes(block.type) && (
-        <button onClick={onDelete} aria-label="Delete block" style={{ background: "none", border: "none", color: "var(--text-muted)", opacity: 0.5, marginTop: 4 }}>
-          <Trash2 size={13} />
+      {(block.type === BLOCK_TYPES.HEADING1 || block.type === BLOCK_TYPES.HEADING2) && (
+        <button
+          onClick={() => onChange({ collapsed: !block.collapsed })}
+          aria-label={block.collapsed ? "Expand section" : "Collapse section"}
+          style={{ background: "none", border: "none", color: "var(--text-muted)", marginTop: 4, flexShrink: 0 }}
+        >
+          {block.collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
         </button>
       )}
+      <div style={{ flex: 1, minWidth: 0 }}>{content}</div>
+      <button onClick={onDelete} aria-label="Delete block" style={{ background: "none", border: "none", color: "var(--text-muted)", opacity: 0.5, marginTop: 4 }}>
+        <Trash2 size={13} />
+      </button>
       <button
         onClick={onOpenMenu}
         aria-label="Insert below"
