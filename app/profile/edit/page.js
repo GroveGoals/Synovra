@@ -1,21 +1,85 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { User, Loader2, AlertCircle, CheckCircle2, Camera, Trash2, RefreshCw, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2, AlertCircle, CheckCircle2, Camera, ChevronRight, X } from "lucide-react";
 import NavShell from "@/components/NavShell";
 import AvatarCropper from "@/components/AvatarCropper";
 
-const MAX_UPLOAD_BYTES = 1_000_000; // ~1MB before base64 overhead
+const MAX_UPLOAD_BYTES = 1_000_000;
+const MAX_BIO_LENGTH = 150;
+
+function FieldSheet({ label, value, onSave, onClose, multiline, maxLength }) {
+  const [draft, setDraft] = useState(value || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave() {
+    setSaving(true);
+    setError("");
+    const ok = await onSave(draft);
+    setSaving(false);
+    if (ok) onClose();
+    else setError("Could not save. Try again.");
+  }
+
+  return (
+    <>
+      <div
+        onClick={onClose}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 400 }}
+      />
+      <div
+        style={{
+          position: "fixed", left: 0, right: 0, bottom: 0,
+          background: "var(--surface)", borderRadius: "20px 20px 0 0",
+          zIndex: 401, padding: 16,
+        }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold">{label}</h2>
+          <button onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", color: "var(--text-muted)" }}>
+            <X size={18} />
+          </button>
+        </div>
+        {error && <div className="alert alert-error mb-2">{error}</div>}
+        {multiline ? (
+          <textarea
+            className="input pl-3 mb-2"
+            style={{ minHeight: 90, resize: "vertical", paddingTop: 10 }}
+            value={draft}
+            maxLength={maxLength}
+            onChange={(e) => setDraft(e.target.value)}
+            autoFocus
+          />
+        ) : (
+          <input
+            className="input mb-2"
+            value={draft}
+            maxLength={maxLength}
+            onChange={(e) => setDraft(e.target.value)}
+            autoFocus
+          />
+        )}
+        {maxLength && (
+          <div className="text-xs mb-2" style={{ color: "var(--text-muted)", textAlign: "right" }}>
+            {draft.length}/{maxLength}
+          </div>
+        )}
+        <button className="btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? <Loader2 size={15} className="animate-spin" /> : "Save"}
+        </button>
+      </div>
+    </>
+  );
+}
 
 export default function EditProfilePage() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [form, setForm] = useState({ username: "", country: "", language: "English", isPublic: true });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [cropSource, setCropSource] = useState(null);
-  const [detectingCountry, setDetectingCountry] = useState(false);
+  const [activeField, setActiveField] = useState(null); // "username" | "bio" | null
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const fileInputRef = useRef(null);
@@ -27,18 +91,10 @@ export default function EditProfilePage() {
         fetch("/api/profile"),
       ]);
       const sessionData = await sessionRes.json();
-      if (!profileRes.ok) {
-        throw new Error(`Profile request failed (${profileRes.status})`);
-      }
+      if (!profileRes.ok) throw new Error(`Profile request failed (${profileRes.status})`);
       const profileData = await profileRes.json();
       setUser(sessionData.user);
       setProfile(profileData.profile);
-      setForm({
-        username: profileData.profile.username,
-        country: profileData.profile.country || "",
-        language: profileData.profile.language,
-        isPublic: profileData.profile.isPublic,
-      });
     } catch (err) {
       setError(`Could not load your profile: ${err.message}`);
     } finally {
@@ -46,55 +102,28 @@ export default function EditProfilePage() {
     }
   }
 
-  useEffect(() => {
-    loadEverything();
-  }, []);
+  useEffect(() => { loadEverything(); }, []);
 
-  useEffect(() => {
-    if (!loading && profile && !profile.country) {
-      detectCountry();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, profile]);
-
-  async function detectCountry() {
-    setDetectingCountry(true);
-    try {
-      const res = await fetch("https://ipapi.co/json/");
-      const data = await res.json();
-      if (data?.country_name) {
-        setForm((f) => ({ ...f, country: data.country_name }));
-      }
-    } catch {
-      // Silent — country just stays unset if detection fails; user can retry.
-    } finally {
-      setDetectingCountry(false);
-    }
-  }
-
-  async function handleSave(e) {
-    e.preventDefault();
-    setError("");
+  async function saveField(field, value) {
     setSuccess("");
-    setSaving(true);
+    setError("");
     try {
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ [field]: value }),
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Could not save changes.");
-        setSaving(false);
-        return;
+        return false;
       }
       setProfile(data.profile);
-      setSuccess("Profile updated.");
+      setSuccess("Saved.");
+      return true;
     } catch {
       setError("Network error. Please try again.");
-    } finally {
-      setSaving(false);
+      return false;
     }
   }
 
@@ -103,7 +132,6 @@ export default function EditProfilePage() {
     if (!file) return;
     setError("");
     setSuccess("");
-
     if (file.size > MAX_UPLOAD_BYTES) {
       setError("Image is too large — please choose one under 1MB.");
       return;
@@ -112,7 +140,6 @@ export default function EditProfilePage() {
       setError("Please choose an image file.");
       return;
     }
-
     const dataUrl = await new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
@@ -137,32 +164,14 @@ export default function EditProfilePage() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Upload failed.");
-        setUploading(false);
         return;
       }
       setProfile((p) => ({ ...p, avatarDataUrl: croppedDataUrl }));
-      setUser((u) => ({ ...u, avatarDataUrl: croppedDataUrl }));
       setSuccess("Profile picture updated.");
     } catch {
       setError("Upload failed. Please try again.");
     } finally {
       setUploading(false);
-    }
-  }
-
-  async function handleRemoveAvatar() {
-    setError("");
-    setSuccess("");
-    try {
-      const res = await fetch("/api/profile/avatar", { method: "DELETE" });
-      if (!res.ok) {
-        setError("Could not remove photo.");
-        return;
-      }
-      setProfile((p) => ({ ...p, avatarDataUrl: null }));
-      setUser((u) => ({ ...u, avatarDataUrl: null }));
-    } catch {
-      setError("Network error. Please try again.");
     }
   }
 
@@ -176,26 +185,27 @@ export default function EditProfilePage() {
     );
   }
 
+  const ROWS = [
+    { key: "username", label: "Username", value: profile?.username, multiline: false, maxLength: 30 },
+    { key: "bio", label: "Bio", value: profile?.bio || "", multiline: true, maxLength: MAX_BIO_LENGTH },
+  ];
+
   return (
     <NavShell user={user}>
       {cropSource && (
-        <AvatarCropper
-          imageSrc={cropSource}
-          onCancel={() => setCropSource(null)}
-          onSave={handleCropSave}
-        />
+        <AvatarCropper imageSrc={cropSource} onCancel={() => setCropSource(null)} onSave={handleCropSave} />
       )}
       <div className="min-h-screen flex flex-col items-center px-4 pb-16">
-        <div className="w-full max-w-[420px] card p-7 mt-10">
-          <Link href="/profile" className="btn-text inline-flex items-center gap-1.5 mb-4">
-            <ArrowLeft size={14} /> Profile
-          </Link>
-          <h1 className="text-xl font-semibold mb-1" style={{ fontFamily: "var(--font-display)" }}>
-            Edit Profile
-          </h1>
-          <p className="text-sm mb-6" style={{ color: "var(--text-muted)" }}>
-            {profile?.email}
-          </p>
+        <div className="w-full max-w-[480px] mt-4">
+          <div className="flex items-center gap-3 mb-6">
+            <Link href="/profile" aria-label="Back" style={{ color: "var(--text)" }}>
+              <ArrowLeft size={20} />
+            </Link>
+            <h1 className="text-lg font-semibold">Edit profile</h1>
+          </div>
+
+          {error && <div className="alert alert-error mb-4"><AlertCircle size={15} />{error}</div>}
+          {success && <div className="alert alert-success mb-4"><CheckCircle2 size={15} />{success}</div>}
 
           <div className="flex flex-col items-center mb-6">
             <div className="relative">
@@ -219,100 +229,62 @@ export default function EditProfilePage() {
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center"
                 style={{ background: "var(--accent)", color: "white" }}
-                aria-label="Upload photo"
+                aria-label="Change photo"
                 disabled={uploading}
               >
                 {uploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
               </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-                style={{ display: "none" }}
-              />
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: "none" }} />
             </div>
-            {profile?.avatarDataUrl && (
-              <button
-                type="button"
-                onClick={handleRemoveAvatar}
-                className="btn-ghost inline-flex items-center gap-1.5 mt-2 text-xs"
-                style={{ color: "var(--text-muted)" }}
-              >
-                <Trash2 size={12} /> Remove photo
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="btn-text mt-2 text-sm"
+            >
+              Change photo
+            </button>
           </div>
 
-          {error && <div className="alert alert-error mb-4"><AlertCircle size={15} />{error}</div>}
-          {success && <div className="alert alert-success mb-4"><CheckCircle2 size={15} />{success}</div>}
-
-          <form onSubmit={handleSave} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
-                Username
-              </label>
-              <div className="relative flex items-center">
-                <User size={15} className="absolute left-3" style={{ color: "var(--text-muted)" }} />
-                <input
-                  className="input"
-                  value={form.username}
-                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-muted)" }}>
-                Country <span style={{ fontWeight: 400 }}>(detected automatically)</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <div
-                  className="input pl-3 flex items-center"
-                  style={{ background: "var(--surface-2)", color: form.country ? "var(--text)" : "var(--text-muted)" }}
-                >
-                  {detectingCountry ? "Detecting…" : form.country || "Not detected yet"}
-                </div>
-                <button
-                  type="button"
-                  onClick={detectCountry}
-                  disabled={detectingCountry}
-                  className="btn-ghost"
-                  style={{ color: "var(--text-muted)", padding: "10px" }}
-                  aria-label="Re-detect country"
-                >
-                  <RefreshCw size={16} className={detectingCountry ? "animate-spin" : ""} />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between py-1">
-              <div>
-                <div className="text-sm font-medium">Public profile</div>
-                <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                  Anyone can view your profile if enabled
-                </div>
-              </div>
+          <div className="card" style={{ padding: 6 }}>
+            {ROWS.map((row, i) => (
               <button
-                type="button"
-                onClick={() => setForm((f) => ({ ...f, isPublic: !f.isPublic }))}
-                className="w-11 h-6 rounded-full relative transition-colors"
-                style={{ background: form.isPublic ? "var(--accent)" : "var(--border)" }}
+                key={row.key}
+                onClick={() => setActiveField(row.key)}
+                className="flex items-center justify-between w-full p-3 rounded-xl text-left"
+                style={{
+                  background: "none", border: "none",
+                  borderBottom: i < ROWS.length - 1 ? "1px solid var(--border)" : "none",
+                }}
               >
-                <span
-                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
-                  style={{ transform: form.isPublic ? "translateX(22px)" : "translateX(2px)" }}
-                />
+                <span className="text-sm font-medium">{row.label}</span>
+                <div className="flex items-center gap-2" style={{ minWidth: 0 }}>
+                  <span
+                    className="text-sm"
+                    style={{
+                      color: "var(--text-muted)", maxWidth: 160, overflow: "hidden",
+                      textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}
+                  >
+                    {row.value || "—"}
+                  </span>
+                  <ChevronRight size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
+                </div>
               </button>
-            </div>
-
-            <button className="btn-primary" type="submit" disabled={saving}>
-              {saving && <Loader2 size={15} className="animate-spin" />}
-              Save Changes
-            </button>
-          </form>
+            ))}
+          </div>
         </div>
       </div>
+
+      {activeField && (
+        <FieldSheet
+          label={ROWS.find((r) => r.key === activeField).label}
+          value={ROWS.find((r) => r.key === activeField).value}
+          multiline={ROWS.find((r) => r.key === activeField).multiline}
+          maxLength={ROWS.find((r) => r.key === activeField).maxLength}
+          onSave={(val) => saveField(activeField, val)}
+          onClose={() => setActiveField(null)}
+        />
+      )}
     </NavShell>
   );
 }
