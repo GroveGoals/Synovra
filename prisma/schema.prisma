@@ -383,3 +383,40 @@ model FeedSave {
 
   @@unique([postId, userId])
 }
+
+model StudyRoom {
+  id     String @id @default(uuid())
+  hostId String
+  host   User   @relation("StudyRoomHost", fields: [hostId], references: [id], onDelete: Cascade)
+  name    String
+  subject String?
+  status  String @default("active") // "active" | "ended"
+  timerStartedAt       DateTime?
+  timerDurationMinutes Int?
+  createdAt DateTime @default(now())
+  members  StudyRoomMember[]
+  messages StudyRoomMessage[]
+}
+
+model StudyRoomMember {
+  id     String    @id @default(uuid())
+  roomId String
+  room   StudyRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId String
+  user   User      @relation("StudyRoomMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  status       String   @default("invited") // "invited" | "studying" | "break" | "left"
+  joinedAt     DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+
+  @@unique([roomId, userId])
+}
+
+model StudyRoomMessage {
+  id     String    @id @default(uuid())
+  roomId String
+  room   StudyRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  userId String
+  user   User      @relation("StudyRoomMessages", fields: [userId], references: [id], onDelete: Cascade)
+  text   String @db.Text
+  createdAt DateTime @default(now())
+}
