@@ -52,6 +52,7 @@ model User {
   hostedStudyRooms     StudyRoom[]        @relation("StudyRoomHost")
   studyRoomMemberships StudyRoomMember[]  @relation("StudyRoomMemberships")
   studyRoomMessages    StudyRoomMessage[] @relation("StudyRoomMessages")
+  tutorConversations   TutorConversation[]
 }
 
 model Follow {
