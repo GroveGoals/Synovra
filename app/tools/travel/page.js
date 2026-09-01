@@ -22,7 +22,7 @@ export default async function TravelPage() {
     <NavShell user={user}>
       <SectionDashboard
         title="Travel"
-        icon={Plane}
+        icon={<Plane size={20} />}
         description="Plan trips from idea to itinerary."
         items={items}
       />
