@@ -424,3 +424,13 @@ model StudyRoomMessage {
   text   String @db.Text
   createdAt DateTime @default(now())
 }
+
+model TutorConversation {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title    String
+  messages Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
