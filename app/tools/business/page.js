@@ -22,7 +22,7 @@ export default async function BusinessPage() {
     <NavShell user={user}>
       <SectionDashboard
         title="Business"
-        icon={Briefcase}
+        icon={<Briefcase size={20} />}
         description="Run and grow your business in one place."
         items={items}
       />
