@@ -16,6 +16,8 @@ export default async function SchoolPage() {
     { label: "Notes", sub: "Write notes, attach files, and turn them into flashcards.", href: "/notes" },
     { label: "Smart Tools", sub: "Turn your notes into flashcards, quizzes, summaries, and more.", href: "/tools/school/flashcards" },
     { label: "Study Room", sub: "Study solo, or invite friends to join you.", href: "/tools/school/study-room" },
+    { label: "Study Progress", sub: "Track your study time and see your breakdown by subject.", href: "/tools/school/study-progress" },
+    { label: "AI Tutor", sub: "A patient tutor that helps you actually understand, not just get answers.", href: "/tools/school/ai-tutor" },
     ...TOOLS.filter((t) => t.category === "School").map((t) => ({
       label: t.label,
       sub: t.description,
