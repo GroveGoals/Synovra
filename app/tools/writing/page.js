@@ -22,7 +22,7 @@ export default async function WritingPage() {
     <NavShell user={user}>
       <SectionDashboard
         title="Writing"
-        icon={PenLine}
+        icon={<PenLine size={20} />}
         description="Draft, polish, and generate writing of any kind."
         items={items}
       />
