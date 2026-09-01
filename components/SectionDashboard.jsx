@@ -1,31 +1,60 @@
-import { redirect } from "next/navigation";
-import { getSessionUserId } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import NavShell from "@/components/NavShell";
-import SectionDashboard from "@/components/SectionDashboard";
-import { TOOLS } from "@/lib/aiTools";
-import { Wrench } from "lucide-react";
+"use client";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
-export default async function HomeToolsPage() {
-  const userId = getSessionUserId();
-  if (!userId) redirect("/login");
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || !user.verified) redirect("/login");
-
-  const items = TOOLS.filter((t) => t.category === "Home Tools").map((t) => ({
-    label: t.label,
-    sub: t.description,
-    href: `/ai-tools/${t.id}`,
-  }));
-
+export default function SectionDashboard({ title, icon, description, items = [] }) {
   return (
-    <NavShell user={user}>
-      <SectionDashboard
-        title="Home Tools"
-        icon={<Wrench size={20} />}
-        description="Everyday utilities for daily life."
-        items={items}
-      />
-    </NavShell>
+    <div>
+      <style>{`
+        .section-dash-header {
+          display: flex; align-items: center; gap: 12px; padding: 18px 16px 6px;
+        }
+        .section-dash-back {
+          width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+          background: var(--surface-2); display: flex; align-items: center; justify-content: center;
+          cursor: pointer; color: var(--text); flex-shrink: 0;
+        }
+        .section-dash-icon {
+          width: 40px; height: 40px; border-radius: 12px; background: var(--accent-soft);
+          color: var(--accent); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .section-dash-title { font-size: 19px; font-weight: 600; font-family: var(--font-display); }
+        .section-dash-desc { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+        .section-dash-grid {
+          display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 16px;
+        }
+        .section-dash-card {
+          display: flex; flex-direction: column; gap: 8px; padding: 14px 12px; border-radius: 14px;
+          border: 1px solid var(--border); background: var(--surface); text-align: left;
+          cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .section-dash-card:hover { background: var(--surface-2); }
+        .section-dash-card-label { font-size: 13.5px; font-weight: 600; color: var(--text); }
+        .section-dash-card-sub { font-size: 11.5px; color: var(--text-muted); }
+      `}</style>
+
+      <div className="section-dash-header">
+        <Link href="/dashboard" className="section-dash-back" aria-label="Exit to Home">
+          <ChevronLeft size={18} />
+        </Link>
+        {icon && <div className="section-dash-icon">{icon}</div>}
+        <div>
+          <div className="section-dash-title">{title}</div>
+          {description && <div className="section-dash-desc">{description}</div>}
+        </div>
+      </div>
+
+      <div className="section-dash-grid">
+        {items.map((item) => (
+          <Link key={item.label} href={item.href} className="section-dash-card">
+            <div>
+              <div className="section-dash-card-label">{item.label}</div>
+              {item.sub && <div className="section-dash-card-sub">{item.sub}</div>}
+            </div>
+            <ChevronRight size={14} style={{ color: "var(--text-muted)", alignSelf: "flex-end" }} />
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
