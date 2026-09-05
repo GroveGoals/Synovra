@@ -43,7 +43,7 @@ export default function ClientsHub() {
     const data = await res.json();
     setCreating(false);
     if (!res.ok) { setError(data.error || "Could not create client."); return; }
-    router.push(`/tools/business/clients/${data.client.id}`);
+    router.push(`/client-notes/${data.client.id}`);
   }
 
   return (
@@ -96,7 +96,7 @@ export default function ClientsHub() {
         ) : (
           <div className="space-y-2">
             {clients.map((client) => (
-              <Link key={client.id} href={`/tools/business/clients/${client.id}`} className="card p-3 flex items-center gap-3">
+              <Link key={client.id} href={`/client-notes/${client.id}`} className="card p-3 flex items-center gap-3">
                 <FileText size={16} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="text-sm font-semibold">{client.name}</div>
