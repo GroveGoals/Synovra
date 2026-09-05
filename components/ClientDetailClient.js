@@ -59,7 +59,7 @@ export default function ClientDetailClient({ clientId }) {
   async function handleDeleteClient() {
     if (!window.confirm(`Delete ${client.name}? Their notes will stay, just unlinked from this client.`)) return;
     await fetch(`/api/clients/${clientId}`, { method: "DELETE" });
-    router.push("/tools/business/clients");
+    router.push("/client-notes");
   }
 
   if (loading) {
@@ -70,7 +70,7 @@ export default function ClientDetailClient({ clientId }) {
     return (
       <div className="min-h-screen flex flex-col items-center px-4 pb-16">
         <div className="w-full max-w-[480px] mt-10">
-          <button onClick={() => router.push("/tools/business/clients")} className="btn-text inline-flex items-center gap-1.5 mb-4">
+          <button onClick={() => router.push("/client-notes")} className="btn-text inline-flex items-center gap-1.5 mb-4">
             <ArrowLeft size={14} /> Client Notes
           </button>
           <div className="alert alert-error"><AlertCircle size={15} />{error || "Client not found."}</div>
@@ -82,7 +82,7 @@ export default function ClientDetailClient({ clientId }) {
   return (
     <div className="min-h-screen flex flex-col items-center px-4 pb-16">
       <div className="w-full max-w-[480px] mt-10">
-        <button onClick={() => router.push("/tools/business/clients")} className="btn-text inline-flex items-center gap-1.5 mb-4">
+        <button onClick={() => router.push("/client-notes")} className="btn-text inline-flex items-center gap-1.5 mb-4">
           <ArrowLeft size={14} /> Client Notes
         </button>
 
