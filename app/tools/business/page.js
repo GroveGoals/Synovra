@@ -13,7 +13,7 @@ export default async function BusinessPage() {
   if (!user || !user.verified) redirect("/login");
 
   const items = [
-    { label: "Client Notes", sub: "Keep notes organized per client.", href: "/tools/business/clients" },
+    { label: "Client Notes", sub: "Keep notes organized per client.", href: "/client-notes" },
     ...TOOLS.filter((t) => t.category === "Business").map((t) => ({
       label: t.label,
       sub: t.description,
