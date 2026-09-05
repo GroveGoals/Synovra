@@ -12,11 +12,14 @@ export default async function BusinessPage() {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || !user.verified) redirect("/login");
 
-  const items = TOOLS.filter((t) => t.category === "Business").map((t) => ({
-    label: t.label,
-    sub: t.description,
-    href: `/ai-tools/${t.id}`,
-  }));
+  const items = [
+    { label: "Client Notes", sub: "Keep notes organized per client.", href: "/tools/business/clients" },
+    ...TOOLS.filter((t) => t.category === "Business").map((t) => ({
+      label: t.label,
+      sub: t.description,
+      href: `/ai-tools/${t.id}`,
+    })),
+  ];
 
   return (
     <NavShell user={user}>
