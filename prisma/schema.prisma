@@ -53,6 +53,7 @@ model User {
   studyRoomMemberships StudyRoomMember[]  @relation("StudyRoomMemberships")
   studyRoomMessages    StudyRoomMessage[] @relation("StudyRoomMessages")
   tutorConversations   TutorConversation[]
+  clients              Client[]
 }
 
 model Follow {
@@ -327,6 +328,8 @@ model Note {
   pinned        Boolean  @default(false)
   folderId      String?
   folder        Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  clientId      String?
+  client        Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
   isAssignment  Boolean  @default(false)
   dueDate       DateTime?
   submitted     Boolean  @default(false)
