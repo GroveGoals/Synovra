@@ -9,6 +9,7 @@ export async function GET(req) {
 
   const { searchParams } = new URL(req.url);
   const folderId = searchParams.get("folderId");
+  const clientId = searchParams.get("clientId");
   const favoritesOnly = searchParams.get("favorites") === "1";
   const assignmentsOnly = searchParams.get("assignments") === "1";
   const sharedOnly = searchParams.get("shared") === "1";
@@ -18,6 +19,7 @@ export async function GET(req) {
     where: {
       userId: user.id,
       ...(folderId ? { folderId } : {}),
+      ...(clientId ? { clientId } : {}),
       ...(favoritesOnly ? { pinned: true } : {}),
       ...(assignmentsOnly ? { isAssignment: true } : {}),
       ...(sharedOnly ? { shareToken: { not: null } } : {}),
@@ -43,6 +45,7 @@ export async function POST(req) {
       isAssignment: !!body.isAssignment,
       dueDate: body.dueDate || null,
       folderId: body.folderId || null,
+      clientId: body.clientId || null,
       content: body.content || emptyDoc(),
     },
   });
